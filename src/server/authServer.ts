@@ -16,6 +16,7 @@ import path from "node:path";
 import crypto from "node:crypto";
 import type { IncomingMessage, ServerResponse } from "node:http";
 import { emailService } from "./emailService.ts";
+import seedAuthDatabase from "../../backend/data/auth_db.json";
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Configuration & Types
@@ -119,30 +120,39 @@ function ensureDbDirectory(): void {
 function loadDatabase(): DatabaseSchema {
   ensureDbDirectory();
   if (!fs.existsSync(DB_FILE)) {
-    const initial: DatabaseSchema = {
-      users: [],
-      sessions: [],
-      refresh_tokens: [],
-      email_verification_tokens: [],
-      password_reset_tokens: [],
-      login_history: [],
-    };
-    fs.writeFileSync(DB_FILE, JSON.stringify(initial, null, 2), "utf-8");
-    return initial;
+    const seed: DatabaseSchema =
+      seedAuthDatabase && Array.isArray((seedAuthDatabase as any).users)
+        ? JSON.parse(JSON.stringify(seedAuthDatabase))
+        : {
+            users: [],
+            sessions: [],
+            refresh_tokens: [],
+            email_verification_tokens: [],
+            password_reset_tokens: [],
+            login_history: [],
+          };
+    try {
+      fs.writeFileSync(DB_FILE, JSON.stringify(seed, null, 2), "utf-8");
+    } catch {
+      // In read-only or serverless environments, continue in-memory if file write fails
+    }
+    return seed;
   }
   try {
     const raw = fs.readFileSync(DB_FILE, "utf-8");
     return JSON.parse(raw);
   } catch (e) {
-    console.error("[LearnGraph Auth] Failed to read database, resetting to empty state", e);
-    return {
-      users: [],
-      sessions: [],
-      refresh_tokens: [],
-      email_verification_tokens: [],
-      password_reset_tokens: [],
-      login_history: [],
-    };
+    console.error("[LearnGraph Auth] Failed to read database, falling back to seed", e);
+    return seedAuthDatabase && Array.isArray((seedAuthDatabase as any).users)
+      ? JSON.parse(JSON.stringify(seedAuthDatabase))
+      : {
+          users: [],
+          sessions: [],
+          refresh_tokens: [],
+          email_verification_tokens: [],
+          password_reset_tokens: [],
+          login_history: [],
+        };
   }
 }
 
@@ -309,6 +319,19 @@ function sendJson(res: ServerResponse, status: number, data: unknown): void {
 }
 
 function parseJsonBody(req: IncomingMessage): Promise<any> {
+  // If Vercel or an upstream framework already parsed the body
+  if ((req as any).body) {
+    const b = (req as any).body;
+    if (typeof b === "string") {
+      try {
+        return Promise.resolve(JSON.parse(b));
+      } catch {
+        return Promise.resolve({});
+      }
+    }
+    return Promise.resolve(b);
+  }
+
   return new Promise((resolve, reject) => {
     let body = "";
     req.on("data", (chunk) => {
@@ -384,11 +407,15 @@ export async function handleAuthApiRequest(
     return true;
   }
 
-  // We handle /api/v1/auth/*, /auth/*, and /api/v1/users/me
+  // We handle /api/v1/auth/*, /api/auth/*, /v1/auth/*, /auth/*, and /api/v1/users/me
   const isAuthRoute =
     pathname.startsWith("/api/v1/auth") ||
+    pathname.startsWith("/api/auth") ||
+    pathname.startsWith("/v1/auth") ||
     pathname.startsWith("/auth/") ||
+    pathname === "/auth" ||
     pathname === "/api/v1/users/me" ||
+    pathname === "/api/users/me" ||
     pathname === "/users/me";
 
   if (!isAuthRoute) {
@@ -399,6 +426,10 @@ export async function handleAuthApiRequest(
   let subpath = pathname;
   if (subpath.startsWith("/api/v1/auth")) {
     subpath = subpath.slice("/api/v1/auth".length);
+  } else if (subpath.startsWith("/api/auth")) {
+    subpath = subpath.slice("/api/auth".length);
+  } else if (subpath.startsWith("/v1/auth")) {
+    subpath = subpath.slice("/v1/auth".length);
   } else if (subpath.startsWith("/auth")) {
     subpath = subpath.slice("/auth".length);
   }
