@@ -1,0 +1,16 @@
+node_modules/
+dist/
+.vercel/
+.env
+.env.*
+!.env.example
+backend/.env
+backend/.env.*
+!backend/.env.example
+backend/data/auth_db.json
+backend/logs/
+__pycache__/
+*.pyc
+.venv/
+venv/
+*.log

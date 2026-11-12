@@ -1,0 +1,14 @@
+{
+  "title": "LearnGraph — Adaptive Knowledge Graph & AI Tutor",
+  "description": "Helps students and educators visualize connected concepts, spot knowledge gaps, and focus learning with personalized quizzes and adaptive progress insights.",
+  "icons": {
+    "icon": "/logo.svg"
+  },
+  "robots": {
+    "index": true
+  },
+  "accessibility": {
+    "addBypassLinks": false,
+    "ignoreReducedMotion": false
+  }
+}

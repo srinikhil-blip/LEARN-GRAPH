@@ -1,0 +1,92 @@
+{
+  "users": {
+    "addadb68-6bd7-4bc7-b228-4714a34a7f9c": {
+      "userId": "addadb68-6bd7-4bc7-b228-4714a34a7f9c",
+      "email": "srinikhil1610@gmail.com",
+      "coursesEnrolled": [],
+      "coursesCompleted": [],
+      "completedLessons": {},
+      "studyTimeMinutes": 0,
+      "quizAttempts": [],
+      "chatSessionsCount": 1,
+      "recentChatTopics": [
+        "Teach me Python"
+      ],
+      "streakDays": 1,
+      "lastActiveDate": "2026-11-12",
+      "weeklyStreakDays": [
+        false,
+        false,
+        false,
+        true,
+        false,
+        false,
+        false
+      ],
+      "masteredConcepts": [],
+      "learningConcepts": [],
+      "weakConcepts": [],
+      "bookmarks": [],
+      "achievements": [],
+      "certificates": [],
+      "_dataVersion": 3
+    },
+    "a5cdb350-2f9b-4b72-b091-fa7fc31569d7": {
+      "userId": "a5cdb350-2f9b-4b72-b091-fa7fc31569d7",
+      "email": "koushik4523@gmail.com",
+      "coursesEnrolled": [],
+      "coursesCompleted": [],
+      "completedLessons": {},
+      "studyTimeMinutes": 0,
+      "quizAttempts": [],
+      "chatSessionsCount": 0,
+      "recentChatTopics": [],
+      "streakDays": 0,
+      "lastActiveDate": null,
+      "weeklyStreakDays": [
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false
+      ],
+      "masteredConcepts": [],
+      "learningConcepts": [],
+      "weakConcepts": [],
+      "bookmarks": [],
+      "achievements": [],
+      "certificates": [],
+      "_dataVersion": 3
+    },
+    "guest_user": {
+      "userId": "guest_user",
+      "email": "guest@learngraph.internal",
+      "coursesEnrolled": [],
+      "coursesCompleted": [],
+      "completedLessons": {},
+      "studyTimeMinutes": 0,
+      "quizAttempts": [],
+      "chatSessionsCount": 0,
+      "recentChatTopics": [],
+      "streakDays": 0,
+      "lastActiveDate": null,
+      "weeklyStreakDays": [
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false
+      ],
+      "masteredConcepts": [],
+      "learningConcepts": [],
+      "weakConcepts": [],
+      "bookmarks": [],
+      "achievements": [],
+      "certificates": []
+    }
+  }
+}

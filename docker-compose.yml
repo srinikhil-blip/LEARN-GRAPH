@@ -1,0 +1,123 @@
+version: "3.9"
+
+services:
+  # ── Frontend Web Server (React + Vite + Nginx) ─────────────
+  frontend:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: learngraph_frontend
+    restart: unless-stopped
+    ports:
+      - "80:80"
+    depends_on:
+      - api
+    healthcheck:
+      test: ["CMD", "wget", "--quiet", "--tries=1", "--spider", "http://localhost/health"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+
+  # ── FastAPI Backend API ────────────────────────────────────
+  api:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: learngraph_api
+    restart: unless-stopped
+    ports:
+      - "8000:8000"
+    env_file:
+      - ./backend/.env
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      neo4j:
+        condition: service_started
+    healthcheck:
+      test: ["CMD-SHELL", "curl -f http://localhost:8000/health || exit 1"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+
+  # ── PostgreSQL with pgvector Extension ─────────────────────
+  postgres:
+    image: pgvector/pgvector:pg16
+    container_name: learngraph_postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: learngraph
+      POSTGRES_USER: learngraph
+      POSTGRES_PASSWORD: learngraph_password
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U learngraph -d learngraph"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # ── Redis Cache & Task Broker ──────────────────────────────
+  redis:
+    image: redis:7-alpine
+    container_name: learngraph_redis
+    restart: unless-stopped
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # ── Neo4j Graph Database (Knowledge Graph) ─────────────────
+  neo4j:
+    image: neo4j:5.23
+    container_name: learngraph_neo4j
+    restart: unless-stopped
+    environment:
+      NEO4J_AUTH: neo4j/neo4j_password
+      NEO4J_PLUGINS: '["apoc", "graph-data-science"]'
+    ports:
+      - "7474:7474"
+      - "7687:7687"
+    volumes:
+      - neo4j_data:/data
+
+  # ── Celery Worker for Asynchronous Jobs ────────────────────
+  celery_worker:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: learngraph_celery_worker
+    restart: unless-stopped
+    env_file:
+      - ./backend/.env
+    depends_on:
+      - redis
+      - postgres
+    command: celery -A app.workers.celery_app worker --loglevel=info -Q default,email_queue,ai_queue,graph_queue
+
+  # ── Celery Beat for Scheduled Jobs ─────────────────────────
+  celery_beat:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: learngraph_celery_beat
+    restart: unless-stopped
+    env_file:
+      - ./backend/.env
+    depends_on:
+      - redis
+    command: celery -A app.workers.celery_app beat --loglevel=info
+
+volumes:
+  postgres_data:
+  redis_data:
+  neo4j_data:
