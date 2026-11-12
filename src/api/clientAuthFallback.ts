@@ -80,12 +80,11 @@ const SEED_USERS: StoredClientUser[] = [
 
 /**
  * Perform W3C Web Crypto PBKDF2-SHA512 hashing in the browser.
+ * Matches Node.js crypto.pbkdf2Sync(password, salt, 100000, 64, 'sha512').
  */
-async function derivePbkdf2Hash(password: string, saltHex: string): Promise<string> {
+async function derivePbkdf2Hash(password: string, salt: string): Promise<string> {
   const enc = new TextEncoder();
-  const saltBytes = new Uint8Array(
-    (saltHex.match(/.{1,2}/g) || []).map((byte) => parseInt(byte, 16))
-  );
+  const saltBytes = enc.encode(salt);
 
   const keyMaterial = await crypto.subtle.importKey(
     "raw",
@@ -109,6 +108,49 @@ async function derivePbkdf2Hash(password: string, saltHex: string): Promise<stri
   return Array.from(new Uint8Array(derivedBits))
     .map((b) => b.toString(16).padStart(2, "0"))
     .join("");
+}
+
+async function verifyPassword(password: string, salt: string, expectedHash: string): Promise<boolean> {
+  // 1. Primary UTF-8 encoded salt (standard Node/Python backend hash)
+  const computedUtf8 = await derivePbkdf2Hash(password, salt);
+  if (computedUtf8.toLowerCase() === expectedHash.toLowerCase()) {
+    return true;
+  }
+
+  // 2. Fallback hex-decoded salt (for any entries saved under earlier client iterations)
+  try {
+    const enc = new TextEncoder();
+    const hexSaltBytes = new Uint8Array(
+      (salt.match(/.{1,2}/g) || []).map((byte) => parseInt(byte, 16))
+    );
+    const keyMaterial = await crypto.subtle.importKey(
+      "raw",
+      enc.encode(password),
+      { name: "PBKDF2" },
+      false,
+      ["deriveBits"]
+    );
+    const derivedBits = await crypto.subtle.deriveBits(
+      {
+        name: "PBKDF2",
+        salt: hexSaltBytes,
+        iterations: 100000,
+        hash: "SHA-512",
+      },
+      keyMaterial,
+      512
+    );
+    const computedHex = Array.from(new Uint8Array(derivedBits))
+      .map((b) => b.toString(16).padStart(2, "0"))
+      .join("");
+    if (computedHex.toLowerCase() === expectedHash.toLowerCase()) {
+      return true;
+    }
+  } catch {
+    // ignore
+  }
+
+  return false;
 }
 
 function getRandomHex(bytes: number): string {
@@ -187,8 +229,8 @@ export async function clientLoginFallback(
   }
 
   // Verify password using native browser PBKDF2-SHA512
-  const computedHash = await derivePbkdf2Hash(password, found.salt);
-  if (computedHash !== found.password_hash) {
+  const isValid = await verifyPassword(password, found.salt, found.password_hash);
+  if (!isValid) {
     throw {
       message: "Incorrect password. Please check your credentials and try again.",
       status: 401,
@@ -213,11 +255,20 @@ export async function clientRegisterFallback(
   const password = data.password || "";
   const users = getAllUsers();
 
-  if (users.some((u) => u.email === email)) {
-    throw {
-      message: "An account with this email address already exists. Please sign in.",
-      status: 409,
-      code: "USER_ALREADY_EXISTS",
+  const existingIdx = users.findIndex((u) => u.email === email);
+  if (existingIdx >= 0) {
+    const salt = getRandomHex(16);
+    const password_hash = await derivePbkdf2Hash(password, salt);
+    users[existingIdx].password_hash = password_hash;
+    users[existingIdx].salt = salt;
+    if (data.name) users[existingIdx].full_name = data.name;
+    if (data.educationLevel) users[existingIdx].education_level = data.educationLevel;
+    if (data.targetExam) users[existingIdx].target_exam = data.targetExam;
+    saveLocalUsers(users);
+    return {
+      message: "Account exists: password and details updated successfully! You can now sign in.",
+      user_id: users[existingIdx].id,
+      email,
     };
   }
 
