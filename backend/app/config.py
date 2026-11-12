@@ -51,7 +51,7 @@ class Settings(BaseSettings):
     # App
     APP_NAME: str = "LearnGraph"
     DEBUG: bool = False
-    CORS_ORIGINS: str = "http://localhost:5173,http://localhost:3000"
+    CORS_ORIGINS: str = "http://localhost:5173,http://localhost:3000,https://www.learngraph.in,https://learngraph.in,https://learn-graph-pi.vercel.app"
 
     # Security
     BCRYPT_ROUNDS: int = 12
