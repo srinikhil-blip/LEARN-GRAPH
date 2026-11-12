@@ -9,7 +9,6 @@
  * - 64-byte derived key
  */
 
-import seedDb from "../../backend/data/auth_db.json";
 import type {
   User,
   LoginCredentials,
@@ -33,6 +32,51 @@ interface StoredClientUser {
   avatar_url: string;
   created_at: string;
 }
+
+const SEED_USERS: StoredClientUser[] = [
+  {
+    id: "addadb68-6bd7-4bc7-b228-4714a34a7f9c",
+    email: "srinikhil1610@gmail.com",
+    full_name: "SRI NIKHIL",
+    password_hash: "a0aa11cca5e32671ee9fd0f0b9426d581dde0c24e7cd91d876f7aea6d33942d1b5c93b6b4f2f53b165e486e76e046d9b82400ffbfa4debb59cab1c4ecf1b08c9",
+    salt: "6de80373471592fe860a040d55bb31de",
+    role: "student",
+    is_verified: true,
+    education_level: "B.Tech",
+    target_exam: "UPSC CSE",
+    learning_goals: [],
+    avatar_url: "",
+    created_at: "2026-11-10T17:49:29.826Z",
+  },
+  {
+    id: "7314646e-d553-44a0-a01c-c7128bd2a7f9",
+    email: "adilakshmithirumalasetty@gmail.com",
+    full_name: "SRI NIKHIL",
+    password_hash: "695cadbd3f5bc8c5c90bbb55ab1cb7222b33df78e14b75d890484d3ebba2418cb43527e27258aa862e9a4e9114c719c8efca0490f4eda298d862c5240606aaab",
+    salt: "11c65b25c8a8d9ec148e7907ebe73ed8",
+    role: "student",
+    is_verified: true,
+    education_level: "B.Tech",
+    target_exam: "JEE Advanced",
+    learning_goals: [],
+    avatar_url: "",
+    created_at: "2026-11-10T17:52:39.927Z",
+  },
+  {
+    id: "b9ae455a-5612-494f-8bfa-b3abb775411e",
+    email: "test_1794332827180@example.com",
+    full_name: "Srinivas Rao (Updated)",
+    password_hash: "a7793c78e37ee220020c58d672eca397aff999b28acdb35b5dba77edd39769a9163df0563b647b758c1da855b4fef347c96d9b2dde1c7814455d852979136cf7",
+    salt: "388f4a9c220c00b47fde6c5a8a6e0986",
+    role: "student",
+    is_verified: true,
+    education_level: "B.Tech",
+    target_exam: "FAANG Placement",
+    learning_goals: [],
+    avatar_url: "",
+    created_at: "2026-11-10T17:47:07.219Z",
+  },
+];
 
 /**
  * Perform W3C Web Crypto PBKDF2-SHA512 hashing in the browser.
@@ -76,20 +120,7 @@ function getRandomHex(bytes: number): string {
 }
 
 function getAllUsers(): StoredClientUser[] {
-  const seedUsers: StoredClientUser[] = (seedDb?.users || []).map((u: any) => ({
-    id: u.id,
-    email: u.email.toLowerCase(),
-    full_name: u.full_name,
-    password_hash: u.password_hash,
-    salt: u.salt,
-    role: u.role || "student",
-    is_verified: Boolean(u.is_verified),
-    education_level: u.education_level || "B.Tech",
-    target_exam: u.target_exam || "None",
-    learning_goals: u.learning_goals || [],
-    avatar_url: u.avatar_url || "",
-    created_at: u.created_at,
-  }));
+  const seedUsers: StoredClientUser[] = [...SEED_USERS];
 
   try {
     const localRaw = localStorage.getItem(CLIENT_USERS_STORAGE_KEY);
