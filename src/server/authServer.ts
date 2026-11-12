@@ -22,7 +22,9 @@ import { emailService } from "./emailService.ts";
 // ─────────────────────────────────────────────────────────────────────────────
 
 const JWT_SECRET = process.env.JWT_SECRET || "learngraph_prod_jwt_super_secret_key_2026_sec#981";
-const DB_FILE = path.resolve(process.cwd(), "backend", "data", "auth_db.json");
+const DB_FILE = process.env.VERCEL
+  ? "/tmp/learngraph_auth_db.json"
+  : path.resolve(process.cwd(), "backend", "data", "auth_db.json");
 
 export interface StoredUser {
   id: string;
