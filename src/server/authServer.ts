@@ -16,7 +16,6 @@ import path from "node:path";
 import crypto from "node:crypto";
 import type { IncomingMessage, ServerResponse } from "node:http";
 import { emailService } from "./emailService.ts";
-import seedAuthDatabase from "../../backend/data/auth_db.json";
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Configuration & Types
@@ -117,20 +116,59 @@ function ensureDbDirectory(): void {
   }
 }
 
+const DEFAULT_SEED_USERS: StoredUser[] = [
+  {
+    id: "addadb68-6bd7-4bc7-b228-4714a34a7f9c",
+    email: "srinikhil1610@gmail.com",
+    full_name: "SRI NIKHIL",
+    username: "srinikhil1610_743",
+    password_hash: "a0aa11cca5e32671ee9fd0f0b9426d581dde0c24e7cd91d876f7aea6d33942d1b5c93b6b4f2f53b165e486e76e046d9b82400ffbfa4debb59cab1c4ecf1b08c9",
+    salt: "6de80373471592fe860a040d55bb31de",
+    role: "student",
+    is_active: true,
+    is_verified: true,
+    education_level: "B.Tech",
+    target_exam: "UPSC CSE",
+    learning_goals: [],
+    avatar_url: "",
+    failed_login_attempts: 0,
+    locked_until: null,
+    created_at: "2026-11-10T17:49:29.826Z",
+    updated_at: "2026-11-10T17:49:29.826Z",
+    last_login_at: "2026-11-12T12:20:57.706Z",
+  },
+  {
+    id: "7314646e-d553-44a0-a01c-c7128bd2a7f9",
+    email: "adilakshmithirumalasetty@gmail.com",
+    full_name: "SRI NIKHIL",
+    username: "adilakshmithirumalasetty_751",
+    password_hash: "695cadbd3f5bc8c5c90bbb55ab1cb7222b33df78e14b75d890484d3ebba2418cb43527e27258aa862e9a4e9114c719c8efca0490f4eda298d862c5240606aaab",
+    salt: "11c65b25c8a8d9ec148e7907ebe73ed8",
+    role: "student",
+    is_active: true,
+    is_verified: true,
+    education_level: "B.Tech",
+    target_exam: "JEE Advanced",
+    learning_goals: [],
+    avatar_url: "",
+    failed_login_attempts: 0,
+    locked_until: null,
+    created_at: "2026-11-10T17:52:39.927Z",
+    updated_at: "2026-11-10T17:52:39.927Z",
+  },
+];
+
 function loadDatabase(): DatabaseSchema {
   ensureDbDirectory();
   if (!fs.existsSync(DB_FILE)) {
-    const seed: DatabaseSchema =
-      seedAuthDatabase && Array.isArray((seedAuthDatabase as any).users)
-        ? JSON.parse(JSON.stringify(seedAuthDatabase))
-        : {
-            users: [],
-            sessions: [],
-            refresh_tokens: [],
-            email_verification_tokens: [],
-            password_reset_tokens: [],
-            login_history: [],
-          };
+    const seed: DatabaseSchema = {
+      users: [...DEFAULT_SEED_USERS],
+      sessions: [],
+      refresh_tokens: [],
+      email_verification_tokens: [],
+      password_reset_tokens: [],
+      login_history: [],
+    };
     try {
       fs.writeFileSync(DB_FILE, JSON.stringify(seed, null, 2), "utf-8");
     } catch {
@@ -143,16 +181,14 @@ function loadDatabase(): DatabaseSchema {
     return JSON.parse(raw);
   } catch (e) {
     console.error("[LearnGraph Auth] Failed to read database, falling back to seed", e);
-    return seedAuthDatabase && Array.isArray((seedAuthDatabase as any).users)
-      ? JSON.parse(JSON.stringify(seedAuthDatabase))
-      : {
-          users: [],
-          sessions: [],
-          refresh_tokens: [],
-          email_verification_tokens: [],
-          password_reset_tokens: [],
-          login_history: [],
-        };
+    return {
+      users: [...DEFAULT_SEED_USERS],
+      sessions: [],
+      refresh_tokens: [],
+      email_verification_tokens: [],
+      password_reset_tokens: [],
+      login_history: [],
+    };
   }
 }
 
