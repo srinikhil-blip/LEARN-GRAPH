@@ -4311,3 +4311,193 @@ i.upcoming {
     padding: 16px;
   }
 }
+
+/* ─────────────────────────────────────────────────────────────────────────────
+   UNIVERSAL MULTI-DEVICE RESPONSIVENESS (Mobile, Tablet, Laptop, 4K Monitor)
+   ───────────────────────────────────────────────────────────────────────────── */
+
+/* Safe area insets for iPhone / iPad notches & Android gesture navigation */
+:root {
+  --sat: env(safe-area-inset-top, 0px);
+  --sar: env(safe-area-inset-right, 0px);
+  --sab: env(safe-area-inset-bottom, 0px);
+  --sal: env(safe-area-inset-left, 0px);
+}
+
+html,
+body {
+  overflow-x: hidden;
+  width: 100%;
+  -webkit-text-size-adjust: 100%;
+  -webkit-tap-highlight-color: transparent;
+}
+
+/* Ensure all media scales proportionally */
+img,
+svg,
+video,
+canvas {
+  max-width: 100%;
+  height: auto;
+}
+
+/* Safe Area Inset Support */
+.topbar {
+  padding-top: var(--sat);
+  height: calc(64px + var(--sat));
+}
+
+.sidebar {
+  padding-top: max(20px, var(--sat));
+  padding-bottom: max(20px, var(--sab));
+  padding-left: max(14px, var(--sal));
+}
+
+/* ── 1. Ultra-Wide & 4K Monitors (1600px+) ───────────────────────────────── */
+@media (min-width: 1600px) {
+  .app-main > main:not(.full-page) {
+    max-width: 1640px;
+    padding: 40px 48px;
+  }
+  .stat-grid {
+    grid-template-columns: repeat(4, 1fr);
+    gap: 24px;
+  }
+  .course-grid {
+    grid-template-columns: repeat(3, 1fr);
+    gap: 28px;
+  }
+  .feature-grid {
+    grid-template-columns: repeat(3, 1fr);
+  }
+}
+
+/* ── 2. Standard Laptops & MacBooks (1024px – 1440px) ─────────────────────── */
+@media (min-width: 1024px) and (max-width: 1440px) {
+  .app-main > main:not(.full-page) {
+    padding: 24px 28px;
+  }
+  .stat-grid {
+    gap: 16px;
+  }
+}
+
+/* ── 3. Tablets & iPad Pro (768px – 1023px) ───────────────────────────────── */
+@media (max-width: 1023px) {
+  .app-main > main:not(.full-page) {
+    padding: 24px 20px;
+  }
+  .stat-grid,
+  .course-grid,
+  .recommend-grid {
+    grid-template-columns: repeat(2, 1fr);
+    gap: 16px;
+  }
+  .topbar {
+    padding: 0 20px;
+  }
+  .analytics-stats,
+  .teacher-stats,
+  .admin-kpis {
+    grid-template-columns: repeat(2, 1fr);
+  }
+  .profile-grid {
+    grid-template-columns: 1fr;
+  }
+  .graph-workspace {
+    grid-template-columns: 1fr;
+  }
+}
+
+/* ── 4. Medium & Compact Mobile Devices (max-width: 640px) ────────────────── */
+@media (max-width: 640px) {
+  .topbar {
+    padding: 0 12px;
+    gap: 8px;
+  }
+  .topbar .flex-1.max-w-md {
+    max-width: 200px;
+  }
+  .top-actions {
+    gap: 6px;
+  }
+  .top-actions .top-avatar {
+    width: 34px;
+    height: 34px;
+    font-size: 12px;
+  }
+  .app-main > main:not(.full-page) {
+    padding: 16px 12px;
+  }
+  .page-header h1 {
+    font-size: 24px;
+    letter-spacing: -0.5px;
+  }
+  .modal,
+  .modal-dialog,
+  [role="dialog"] {
+    max-width: calc(100vw - 20px) !important;
+    max-height: calc(100vh - 30px);
+    overflow-y: auto;
+    margin: 10px auto;
+  }
+  .stat-grid,
+  .course-grid,
+  .recommend-grid,
+  .analytics-stats,
+  .teacher-stats,
+  .admin-kpis {
+    grid-template-columns: 1fr;
+    gap: 12px;
+  }
+  .auth-panel {
+    padding: 24px 16px;
+  }
+  .auth-card {
+    padding: 24px 18px;
+  }
+  .table-responsive,
+  .student-table,
+  .analytics-table-wrap {
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+    max-width: 100%;
+  }
+}
+
+/* ── 5. Small Mobiles & Folding Screens (320px – 390px) ───────────────────── */
+@media (max-width: 390px) {
+  .topbar {
+    padding: 0 8px;
+    gap: 6px;
+  }
+  .topbar .flex-1.max-w-md {
+    max-width: 140px;
+  }
+  .topbar .search-bar input {
+    font-size: 12px;
+    padding-left: 28px;
+  }
+  .page-header {
+    gap: 12px;
+    margin-bottom: 16px;
+  }
+  .page-header h1 {
+    font-size: 21px;
+  }
+  .button {
+    font-size: 12px;
+    padding: 0 12px;
+    height: 38px;
+  }
+  .auth-panel {
+    padding: 16px 10px;
+  }
+  .hero-copy h1 {
+    font-size: 32px !important;
+    letter-spacing: -1.5px;
+  }
+  .hero-actions .button {
+    width: 100%;
+  }
+}

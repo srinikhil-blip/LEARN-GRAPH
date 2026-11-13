@@ -69,6 +69,12 @@ from app.models.quiz import Quiz
 from app.models.quiz_attempt import QuizAnswer, QuizAttempt
 from app.models.quiz_result import QuizResult
 from app.models.recommendation import Recommendation
+from app.models.learning_resource import (
+    ResourceCategory,
+    CourseResource,
+    TopicResource,
+    VideoResource,
+)
 from app.models.resource import Resource
 from app.models.student_profile import StudentProfile
 from app.models.study_goal import StudyGoal
@@ -120,6 +126,10 @@ __all__ = [
     "Lesson",
     "Concept",
     "Resource",
+    "ResourceCategory",
+    "CourseResource",
+    "TopicResource",
+    "VideoResource",
     "CourseEnrollment",
     "LessonProgress",
     "TopicProgress",

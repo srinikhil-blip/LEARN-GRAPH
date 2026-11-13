@@ -107,6 +107,60 @@ export async function handleQuizApiRequest(
     return true;
   }
 
+  // ── GET /api/v1/quiz/questions ─────────────────────────────────────────────
+  if (pathname === `${QUIZ_PREFIX}/questions` && method === 'GET') {
+    const topic = searchParams.get('topic') || 'Core Concept Mastery';
+    sendJson(res, [
+      {
+        id: `q-srv-${Date.now()}-1`,
+        text: `What fundamental invariant governs systematic analysis in ${topic}?`,
+        options: [
+          "Hardware clock cycles vary, but growth rates remain bound by invariant order functions",
+          "Every iterative algorithm executes in strict constant time regardless of input size",
+          "Memory allocation size eliminates asymptotic dependencies",
+          "Asymptotic bounds only apply to compiled C++ routines",
+        ],
+        correctAnswerIndex: 0,
+        explanation: "Asymptotic notation characterizes the growth rate of runtime as input approaches infinity, abstracting hardware differences.",
+        difficulty: "Medium",
+        topic,
+        estimatedTimeSeconds: 60,
+        relatedConcepts: ["Asymptotic Notation", "Big O", "Algorithm Invariants"],
+      },
+    ]);
+    return true;
+  }
+
+  // ── POST /api/v1/quiz/generate ────────────────────────────────────────────
+  if (pathname === `${QUIZ_PREFIX}/generate` && method === 'POST') {
+    const body = await readBody(req);
+    const topic = body.topic || 'Chemical Reactions and Equations';
+    const count = body.questionCount || 5;
+    sendJson(res, {
+      quizId: `gen-quiz-${Date.now()}`,
+      title: `${topic} Diagnostic Exam`,
+      category: body.subject || "General Science",
+      questions: Array.from({ length: count }).map((_, i) => ({
+        id: `gen-q-${i + 1}`,
+        text: `Question ${i + 1}: Analyze the core principle of ${topic} under standard conditions.`,
+        options: [
+          "Primary equilibrium shift towards minimum free energy",
+          "Linear rate acceleration without temperature change",
+          "Complete cessation of molecular collision",
+          "Entropy reduction violating thermodynamics",
+        ],
+        correctAnswerIndex: 0,
+        explanation: `Under standard conditions, processes in ${topic} minimize Gibbs free energy and maintain invariant conservation laws.`,
+        difficulty: body.difficulty || "Medium",
+        topic,
+        estimatedTimeSeconds: 60,
+        relatedConcepts: [topic, "Conservation Laws"],
+      })),
+      config: body,
+    });
+    return true;
+  }
+
   // ── POST /api/v1/quiz/submit ──────────────────────────────────────────────
   if (pathname === `${QUIZ_PREFIX}/submit` && method === 'POST') {
     const body = await readBody(req);

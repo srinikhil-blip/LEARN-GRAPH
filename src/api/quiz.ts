@@ -133,4 +133,39 @@ export const quizApi = {
       explanation: q?.explanation || "Option evaluated.",
     });
   },
+
+  /**
+   * GET /quiz/questions
+   * Retrieve questions directly for a specific topic.
+   */
+  getQuestions: async (topicId?: string): Promise<QuizQuestion[]> => {
+    const quiz = await quizApi.getQuiz(topicId);
+    return quiz.questions;
+  },
+
+  /**
+   * GET /quiz/analytics
+   * Retrieve aggregated quiz analytics, accuracy trends, and mastery distributions.
+   */
+  getAnalytics: async () => {
+    return apiWithFallback(
+      async () => {
+        const res = await apiClient.get("/quiz/analytics");
+        return res.data;
+      },
+      async () => {
+        const state = userProgressService.getState();
+        const attempts = state.quizAttempts;
+        const total = attempts.length;
+        const avgScore = total > 0 ? Math.round(attempts.reduce((acc, curr) => acc + (curr.score / curr.maxScore) * 100, 0) / total) : 0;
+        return {
+          totalAttempts: total,
+          averageAccuracyPercent: avgScore,
+          masteredConceptsCount: state.masteredConcepts.length,
+          weakConceptsCount: state.weakConcepts.length,
+          attempts,
+        };
+      }
+    );
+  },
 };
