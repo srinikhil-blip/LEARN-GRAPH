@@ -1,0 +1,40 @@
+services:
+  # FastAPI Python Backend Web Service
+  - type: web
+    name: learngraph-backend
+    runtime: docker
+    dockerfilePath: ./backend/Dockerfile
+    dockerContext: ./backend
+    plan: free
+    region: oregon
+    envVars:
+      - key: APP_NAME
+        value: LearnGraph
+      - key: APP_ENV
+        value: production
+      - key: DEBUG
+        value: false
+      - key: SECRET_KEY
+        generateValue: true
+      - key: JWT_SECRET_KEY
+        value: learngraph_prod_jwt_super_secret_key_2026_sec#981
+      - key: CORS_ORIGINS
+        value: "https://learn-graph-pi.vercel.app,https://www.learngraph.in,https://learngraph.in,http://localhost:5173"
+      - key: FRONTEND_URL
+        value: "https://www.learngraph.in"
+
+  # LearnGraph Frontend
+  - type: web
+    name: learngraph-frontend
+    runtime: static
+    buildCommand: npm install --legacy-peer-deps && npm run build
+    staticPublishPath: ./dist
+    plan: free
+    region: oregon
+    envVars:
+      - key: VITE_API_URL
+        value: /api/v1
+    routes:
+      - type: rewrite
+        source: /*
+        destination: /index.html

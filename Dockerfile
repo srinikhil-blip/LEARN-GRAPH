@@ -11,8 +11,8 @@ WORKDIR /app
 # Copy dependency specifications
 COPY package.json package-lock.json ./
 
-# Install clean dependencies
-RUN npm ci
+# Install dependencies safely with peer dependency resolution
+RUN npm install --legacy-peer-deps
 
 # Copy project source code
 COPY . .
