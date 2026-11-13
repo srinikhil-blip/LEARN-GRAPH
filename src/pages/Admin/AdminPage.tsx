@@ -1,3 +1,4 @@
+import { useState } from "react";
 import {
   BookOpen,
   ChevronDown,
@@ -6,6 +7,8 @@ import {
   Plus,
   Settings,
   Users,
+  Layers,
+  Activity,
 } from "lucide-react";
 import { PageHeader } from "@/components/ui/PageHeader";
 import { Button } from "@/components/ui/Button";
@@ -18,8 +21,11 @@ import {
   MOCK_USER_GROWTH,
   MOCK_MODEL_CONFIG,
 } from "@/mock/admin.mock";
+import { CurriculumCMS } from "./CurriculumCMS";
 
 export function AdminPage() {
+  const [adminSection, setAdminSection] = useState<"overview" | "curriculum">("overview");
+
   const iconMap: Record<string, any> = {
     Users,
     BookOpen,
@@ -31,32 +37,49 @@ export function AdminPage() {
     <>
       <PageHeader
         eyebrow="ADMIN CONSOLE"
-        title="Platform overview"
-        description="Monitor your institution, AI systems, and learning infrastructure."
+        title="Universal Administration & Curriculum CMS"
+        description="Monitor learning infrastructure, manage database-driven curricula, and publish new academic syllabus versions."
         action={
-          <Button>
-            <Plus size={15} /> Invite users
-          </Button>
+          <div className="flex items-center gap-2">
+            <Button
+              variant={adminSection === "overview" ? "primary" : "secondary"}
+              onClick={() => setAdminSection("overview")}
+              className="gap-1.5 text-xs py-1.5"
+            >
+              <Activity size={14} /> System Health
+            </Button>
+            <Button
+              variant={adminSection === "curriculum" ? "primary" : "secondary"}
+              onClick={() => setAdminSection("curriculum")}
+              className="gap-1.5 text-xs py-1.5"
+            >
+              <Layers size={14} /> Curriculum CMS
+            </Button>
+          </div>
         }
       />
 
-      <div className="admin-kpis">
-        {MOCK_ADMIN_KPIS.map((kpi, i) => {
-          const Icon = iconMap[kpi.iconName] || Users;
-          return (
-            <article key={kpi.label}>
-              <span className={`stat-icon a${i}`}>
-                <Icon />
-              </span>
-              <div>
-                <small>{kpi.label}</small>
-                <strong>{kpi.value}</strong>
-                <span>{kpi.delta}</span>
-              </div>
-            </article>
-          );
-        })}
-      </div>
+      {adminSection === "curriculum" ? (
+        <CurriculumCMS />
+      ) : (
+        <>
+          <div className="admin-kpis">
+            {MOCK_ADMIN_KPIS.map((kpi, i) => {
+              const Icon = iconMap[kpi.iconName] || Users;
+              return (
+                <article key={kpi.label}>
+                  <span className={`stat-icon a${i}`}>
+                    <Icon />
+                  </span>
+                  <div>
+                    <small>{kpi.label}</small>
+                    <strong>{kpi.value}</strong>
+                    <span>{kpi.delta}</span>
+                  </div>
+                </article>
+              );
+            })}
+          </div>
 
       <div className="admin-grid">
         <article className="panel chart-panel">
@@ -152,6 +175,8 @@ export function AdminPage() {
         </article>
       </div>
     </>
+  )}
+</>
   );
 }
 

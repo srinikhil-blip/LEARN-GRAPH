@@ -79,6 +79,17 @@ from app.models.learning_resource import (
     TopicReferenceMaterial,
     TopicPracticeProblem,
 )
+from app.models.universal_curriculum import (
+    EducationLevel,
+    Board,
+    University,
+    Degree,
+    Semester,
+    CurriculumVersion,
+    Subtopic,
+    CurriculumBookmark,
+    KnowledgeGraphRelation,
+)
 from app.models.resource import Resource
 from app.models.student_profile import StudentProfile
 from app.models.study_goal import StudyGoal
@@ -138,6 +149,15 @@ __all__ = [
     "TopicCurriculumDetail",
     "TopicReferenceMaterial",
     "TopicPracticeProblem",
+    "EducationLevel",
+    "Board",
+    "University",
+    "Degree",
+    "Semester",
+    "CurriculumVersion",
+    "Subtopic",
+    "CurriculumBookmark",
+    "KnowledgeGraphRelation",
     "ResourceCategory",
     "CourseResource",
     "TopicResource",
