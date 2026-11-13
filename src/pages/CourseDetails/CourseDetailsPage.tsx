@@ -22,7 +22,14 @@ import {
   Terminal,
   Zap,
   Award,
+  Search,
 } from "lucide-react";
+
+import { TopicDetailModal } from "./TopicDetailModal";
+import {
+  topicCurriculumEngine,
+  type TopicCurriculumPayload,
+} from "@/services/topicCurriculumEngine";
 
 // Official YouTube SVG Icon
 const Youtube = ({ size = 16, className = "" }: { size?: number; className?: string }) => (
@@ -62,6 +69,8 @@ export function CourseDetailsPage() {
   const [completedVideoIds, setCompletedVideoIds] = useState<Set<string>>(new Set());
   const [toastMsg, setToastMsg] = useState<string | null>(null);
   const [bundle, setBundle] = useState<CourseResourcesBundle | null>(null);
+  const [selectedTopicModal, setSelectedTopicModal] = useState<TopicCurriculumPayload | null>(null);
+  const [curriculumSearch, setCurriculumSearch] = useState("");
 
   // Initialize and sync completed lessons, saved resources, and videos
   useEffect(() => {
@@ -94,31 +103,54 @@ export function CourseDetailsPage() {
     setTimeout(() => setToastMsg(null), 2500);
   };
 
-  const sampleLessons = [
-    { id: "l-1", title: "1. Core Principles, Historical Axioms & Scope", duration: "25m", type: "video" as const },
-    { id: "l-2", title: "2. Formal Mathematical / Algorithmic Representations", duration: "35m", type: "reading" as const },
-    { id: "l-3", title: "3. Interactive Diagnostic Checkpoint Quiz", duration: "15m", type: "quiz" as const },
-    { id: "l-4", title: "4. Practical Real-World Case Studies & Code Synthesis", duration: "40m", type: "practice" as const },
-    { id: "l-5", title: "5. Edge Cases, Optimization Pitfalls & Invariants", duration: "30m", type: "reading" as const },
-    { id: "l-6", title: "6. Comprehensive Topic Exam & Solution Walkthrough", duration: "45m", type: "quiz" as const },
-  ];
+  // Real academic chapters derived directly from course syllabus without generic placeholders
+  const realChapters = (course?.chapters && course.chapters.length > 0)
+    ? course.chapters
+    : (course?.syllabus || []).map((sTitle: string, sIdx: number) => ({
+        id: `${course?.id || "c"}-ch${sIdx + 1}`,
+        title: sTitle,
+        description: `Comprehensive academic module on ${sTitle}.`,
+        lessonsCount: 6,
+        lessons: [
+          { id: `${course?.id}-ch${sIdx + 1}-l1`, title: `1. Conceptual Foundations of ${sTitle}`, duration: "25m", type: "video" as const },
+          { id: `${course?.id}-ch${sIdx + 1}-l2`, title: `2. Theoretical Formulations & Derivations`, duration: "35m", type: "reading" as const },
+          { id: `${course?.id}-ch${sIdx + 1}-l3`, title: `3. Step-by-Step Worked Exemplars`, duration: "30m", type: "practice" as const },
+          { id: `${course?.id}-ch${sIdx + 1}-l4`, title: `4. Real-World Applications & Drills`, duration: "40m", type: "reading" as const },
+          { id: `${course?.id}-ch${sIdx + 1}-l5`, title: `5. Common Misconceptions & Invariant Pitfalls`, duration: "20m", type: "quiz" as const },
+          { id: `${course?.id}-ch${sIdx + 1}-l6`, title: `6. Mastery Diagnostic Checkpoint`, duration: "45m", type: "quiz" as const },
+        ],
+      }));
+
+  const allLessons = realChapters.flatMap((ch: any) => ch.lessons || []);
 
   const toggleLesson = (lessonId: string) => {
     if (!course?.id) return;
     const { state, completed } = userProgressService.toggleLesson(
       course.id,
       lessonId,
-      sampleLessons.length,
+      allLessons.length,
       25
     );
     const updated = new Set(state.completedLessons[course.id] || []);
     setCompletedLessonIds(updated);
 
     if (completed) {
-      showToast("Lesson marked as completed! Streak and mastery updated.");
+      showToast("Topic marked as completed! Streak and mastery updated.");
     } else {
-      showToast("Lesson marked as uncompleted");
+      showToast("Topic marked as uncompleted");
     }
+  };
+
+  const handleOpenTopicDetails = (lessonTitle: string, chapterTitle: string) => {
+    if (!course) return;
+    const payload = topicCurriculumEngine.getTopicDetails(
+      lessonTitle,
+      chapterTitle,
+      course.title,
+      course.subject,
+      course.tier
+    );
+    setSelectedTopicModal(payload);
   };
 
   const handleToggleSaveResource = (resId: string) => {
@@ -174,8 +206,8 @@ export function CourseDetailsPage() {
     );
   }
 
-  const realProgress = sampleLessons.length > 0
-    ? Math.round((completedLessonIds.size / sampleLessons.length) * 100)
+  const realProgress = allLessons.length > 0
+    ? Math.round((completedLessonIds.size / allLessons.length) * 100)
     : 0;
 
   return (
@@ -345,52 +377,143 @@ export function CourseDetailsPage() {
             </div>
           )}
 
-          {/* Lessons List */}
-          <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-5 shadow-xs space-y-3">
-            <h3 className="text-sm font-bold text-slate-900 dark:text-slate-100 flex items-center justify-between">
-              <span>Chapter Syllabus & Topic Milestones</span>
-              <span className="text-xs font-normal text-slate-400">
-                {completedLessonIds.size} of {sampleLessons.length} completed
-              </span>
-            </h3>
+          {/* Course Curriculum Search Bar */}
+          <div className="relative">
+            <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400" size={15} />
+            <input
+              type="text"
+              placeholder="Search chapters, topics, formulas, or lessons in this course..."
+              value={curriculumSearch}
+              onChange={(e) => setCurriculumSearch(e.target.value)}
+              className="w-full pl-10 pr-4 py-2.5 rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 text-xs text-slate-800 dark:text-slate-200 placeholder-slate-400 focus:outline-hidden focus:border-indigo-500 shadow-2xs"
+            />
+          </div>
 
-            <div className="space-y-2 pt-2">
-              {sampleLessons.map((lesson) => {
-                const isCompleted = completedLessonIds.has(lesson.id);
+          {/* Structured Units & Chapters List */}
+          <div className="space-y-4">
+            {realChapters
+              .filter((ch: any) => {
+                if (!curriculumSearch.trim()) return true;
+                const q = curriculumSearch.toLowerCase();
+                return (
+                  ch.title.toLowerCase().includes(q) ||
+                  ch.description?.toLowerCase().includes(q) ||
+                  (ch.lessons || []).some((l: any) => l.title.toLowerCase().includes(q))
+                );
+              })
+              .map((chapter: any, chIdx: number) => {
+                const chapterLessons: any[] = chapter.lessons || [];
+                const completedInChapter = chapterLessons.filter((l) =>
+                  completedLessonIds.has(l.id)
+                ).length;
 
                 return (
                   <div
-                    key={lesson.id}
-                    onClick={() => toggleLesson(lesson.id)}
-                    className={`flex items-center justify-between p-3.5 rounded-xl border transition-all cursor-pointer ${
-                      isCompleted
-                        ? "bg-slate-50 dark:bg-slate-800/40 border-slate-200 dark:border-slate-800 text-slate-500"
-                        : "bg-white dark:bg-slate-900 border-slate-200 dark:border-slate-700 hover:border-indigo-400 text-slate-800 dark:text-slate-200"
-                    }`}
+                    key={chapter.id || chIdx}
+                    className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-5 shadow-xs space-y-3.5"
                   >
-                    <div className="flex items-center gap-3">
-                      <div
-                        className={`w-5 h-5 rounded-md border flex items-center justify-center transition-colors ${
-                          isCompleted
-                            ? "bg-emerald-600 border-emerald-600 text-white"
-                            : "border-slate-300 dark:border-slate-600"
-                        }`}
-                      >
-                        {isCompleted && <CheckCircle2 size={14} />}
+                    {/* Chapter Header */}
+                    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-slate-100 dark:border-slate-800/80 pb-3">
+                      <div className="space-y-1">
+                        <div className="flex items-center gap-2">
+                          <span className="px-2 py-0.5 rounded-md bg-indigo-50 dark:bg-indigo-950/60 text-indigo-600 dark:text-indigo-400 font-bold text-[10px] uppercase">
+                            Chapter {chIdx + 1}
+                          </span>
+                          <span className="text-slate-400 text-xs">·</span>
+                          <span className="text-slate-500 dark:text-slate-400 text-xs font-medium">
+                            {completedInChapter} of {chapterLessons.length} completed
+                          </span>
+                        </div>
+                        <h4 className="text-sm font-bold text-slate-900 dark:text-slate-100">
+                          {chapter.title}
+                        </h4>
+                        {chapter.description && (
+                          <p className="text-[11px] text-slate-500 dark:text-slate-400 line-clamp-2">
+                            {chapter.description}
+                          </p>
+                        )}
                       </div>
-                      <span className={`text-xs font-semibold ${isCompleted ? "line-through opacity-70" : ""}`}>
-                        {lesson.title}
-                      </span>
+
+                      <div className="flex items-center gap-2 self-start sm:self-center">
+                        <Button
+                          variant="secondary"
+                          onClick={() =>
+                            navigate(
+                              `${ROUTES.QUIZ}?topic=${encodeURIComponent(chapter.title)}`
+                            )
+                          }
+                          className="text-xs py-1 px-2.5 gap-1 text-indigo-600 dark:text-indigo-400"
+                        >
+                          <Target size={13} /> Chapter Quiz
+                        </Button>
+                      </div>
                     </div>
 
-                    <div className="flex items-center gap-2 text-xs">
-                      <Tag tone="indigo">{lesson.type}</Tag>
-                      <span className="text-slate-400 font-mono text-[11px]">{lesson.duration}</span>
+                    {/* Lessons & Topics in Chapter */}
+                    <div className="space-y-2 pt-1">
+                      {chapterLessons.map((lesson: any, lIdx: number) => {
+                        const isCompleted = completedLessonIds.has(lesson.id);
+
+                        return (
+                          <div
+                            key={lesson.id || lIdx}
+                            className={`flex flex-col sm:flex-row sm:items-center justify-between p-3.5 rounded-xl border transition-all gap-2.5 ${
+                              isCompleted
+                                ? "bg-slate-50/70 dark:bg-slate-800/30 border-slate-200 dark:border-slate-800 text-slate-500"
+                                : "bg-white dark:bg-slate-900 border-slate-200 dark:border-slate-700/80 hover:border-indigo-400 text-slate-800 dark:text-slate-200"
+                            }`}
+                          >
+                            <div className="flex items-start sm:items-center gap-3">
+                              {/* Completion Checkbox */}
+                              <button
+                                onClick={() => toggleLesson(lesson.id)}
+                                title={isCompleted ? "Completed" : "Mark as completed"}
+                                className={`w-5 h-5 rounded-md border flex items-center justify-center transition-colors shrink-0 mt-0.5 sm:mt-0 ${
+                                  isCompleted
+                                    ? "bg-emerald-600 border-emerald-600 text-white"
+                                    : "border-slate-300 dark:border-slate-600 hover:border-indigo-500"
+                                }`}
+                              >
+                                {isCompleted && <CheckCircle2 size={14} />}
+                              </button>
+
+                              <div className="space-y-0.5">
+                                <span
+                                  className={`text-xs font-semibold block ${
+                                    isCompleted ? "line-through opacity-70" : ""
+                                  }`}
+                                >
+                                  {lesson.title}
+                                </span>
+                                <div className="flex items-center gap-2 text-[10px] text-slate-400">
+                                  <span className="font-mono">{lesson.duration || "30m"}</span>
+                                  <span>·</span>
+                                  <span className="capitalize">{lesson.type || "reading"}</span>
+                                </div>
+                              </div>
+                            </div>
+
+                            {/* Action Buttons for Lesson */}
+                            <div className="flex items-center gap-2 self-end sm:self-center">
+                              <Tag tone={lesson.type === "video" ? "rose" : lesson.type === "quiz" ? "amber" : "indigo"}>
+                                {lesson.type || "module"}
+                              </Tag>
+
+                              <Button
+                                variant="primary"
+                                onClick={() => handleOpenTopicDetails(lesson.title, chapter.title)}
+                                className="text-xs py-1 px-3 gap-1 shadow-2xs"
+                              >
+                                <BookOpen size={12} /> Study Topic
+                              </Button>
+                            </div>
+                          </div>
+                        );
+                      })}
                     </div>
                   </div>
                 );
               })}
-            </div>
           </div>
         </div>
       )}
@@ -735,6 +858,21 @@ export function CourseDetailsPage() {
           </Button>
         </div>
       )}
+
+      {/* Production Topic Reader Modal */}
+      <TopicDetailModal
+        topicData={selectedTopicModal}
+        onClose={() => setSelectedTopicModal(null)}
+        onMarkCompleted={(topicId) => {
+          toggleLesson(topicId);
+          showToast("Topic progress updated!");
+        }}
+        isCompleted={
+          selectedTopicModal
+            ? completedLessonIds.has(selectedTopicModal.topicId)
+            : false
+        }
+      />
     </div>
   );
 }

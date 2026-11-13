@@ -74,6 +74,10 @@ from app.models.learning_resource import (
     CourseResource,
     TopicResource,
     VideoResource,
+    CourseUnit,
+    TopicCurriculumDetail,
+    TopicReferenceMaterial,
+    TopicPracticeProblem,
 )
 from app.models.resource import Resource
 from app.models.student_profile import StudentProfile
@@ -126,6 +130,14 @@ __all__ = [
     "Lesson",
     "Concept",
     "Resource",
+    "ResourceCategory",
+    "CourseResource",
+    "TopicResource",
+    "VideoResource",
+    "CourseUnit",
+    "TopicCurriculumDetail",
+    "TopicReferenceMaterial",
+    "TopicPracticeProblem",
     "ResourceCategory",
     "CourseResource",
     "TopicResource",

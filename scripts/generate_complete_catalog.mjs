@@ -13,14 +13,14 @@ const rootDir = path.resolve(__dirname, '..');
 
 console.log("Generating EXHAUSTIVE LearnGraph Production Curriculum Catalog...");
 
-function makeLessons(prefix, count, titles, durations = ["25m", "30m", "20m", "35m", "40m", "15m"]) {
-  const types = ["video", "reading", "quiz", "practice", "reading", "quiz"];
+function makeLessons(prefix, count, titles, durations = ["25m", "35m", "30m", "40m", "20m", "45m"]) {
+  const types = ["video", "reading", "practice", "reading", "quiz", "quiz"];
   return titles.map((title, idx) => ({
     id: `${prefix}-l${idx + 1}`,
     title: `${idx + 1}. ${title}`,
     duration: durations[idx % durations.length],
     type: types[idx % types.length],
-    completed: idx < 2
+    completed: idx === 0
   }));
 }
 
@@ -38,25 +38,54 @@ function createCourse({
   learningPath,
   syllabus,
   notes,
-  chapterTitles = ["Foundational Concepts & Principles", "Core Applications & Problem Solving"]
+  chapterTitles
 }) {
-  const chapters = chapterTitles.map((chTitle, chIdx) => {
+  // Use unique syllabus as chapter titles if available! Never use generic placeholders.
+  const effectiveChapters = (chapterTitles && chapterTitles.length > 0)
+    ? chapterTitles
+    : (syllabus && syllabus.length > 0)
+      ? syllabus
+      : (learningPath && learningPath.length > 0)
+        ? learningPath
+        : [`${title}: Foundational Principles`, `${title}: Applied Analysis & Problem Solving`];
+
+  // Organize chapters into Units (Course -> Units -> Chapters -> Lessons)
+  const unitsCount = Math.max(1, Math.ceil(effectiveChapters.length / 3));
+  const units = [];
+  for (let u = 0; u < unitsCount; u++) {
+    const unitChapters = effectiveChapters.slice(u * 3, (u + 1) * 3);
+    units.push({
+      id: `${id}-unit-${u + 1}`,
+      unitNumber: u + 1,
+      title: `Unit ${u + 1}: ${unitChapters[0]} & Connected Frameworks`,
+      description: `Comprehensive mastery of core and auxiliary concepts across ${unitChapters.join(', ')}.`,
+      chaptersCount: unitChapters.length,
+      chapterNames: unitChapters
+    });
+  }
+
+  const chapters = effectiveChapters.map((chTitle, chIdx) => {
     const chId = `${id}-ch${chIdx + 1}`;
     const lessonTitles = [
-      `Introduction to ${chTitle}`,
-      `Theoretical Foundations & Mathematical Formulations`,
-      `Diagnostic Mastery Quiz: ${chTitle}`,
-      `Practical Applications & Case Problem Solving`
+      `Conceptual Foundations & First Principles of ${chTitle}`,
+      `Theoretical Formulations, Mathematical Derivations & Axioms`,
+      `Worked Exemplar Case Problems & Step-by-Step Solutions`,
+      `Applied Systems, Real-World Implementations & Coding Drills`,
+      `Common Misconceptions, Pitfalls & Invariant Proofs`,
+      `Mastery Diagnostic Checkpoint & Competitive Exam Practice`
     ];
+
     return {
       id: chId,
+      unitId: `${id}-unit-${Math.floor(chIdx / 3) + 1}`,
       title: chTitle,
-      lessonsCount: 4,
-      lessons: makeLessons(chId, 4, lessonTitles)
+      description: `Rigorous academic walkthrough of ${chTitle}, structured for deep pedagogical understanding, practical mastery, and exam readiness.`,
+      lessonsCount: lessonTitles.length,
+      lessons: makeLessons(chId, lessonTitles.length, lessonTitles)
     };
   });
 
-  const totalLessons = chapters.reduce((sum, ch) => sum + ch.lessonsCount, 0) * 3;
+  const totalLessons = chapters.reduce((sum, ch) => sum + ch.lessonsCount, 0);
 
   return {
     id,
@@ -88,6 +117,7 @@ function createCourse({
       "Real-World Industry & Exam Applications",
       "Diagnostic Assessment & Review Solutions"
     ],
+    units,
     chapters
   };
 }

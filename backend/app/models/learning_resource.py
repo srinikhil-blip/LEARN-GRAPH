@@ -107,3 +107,84 @@ class VideoResource(UUIDPrimaryKeyMixin, TimestampMixin, Base):
     created_date: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), default=lambda: datetime.now(timezone.utc), nullable=False
     )
+
+
+class CourseUnit(UUIDPrimaryKeyMixin, TimestampMixin, Base):
+    """Course Unit grouping chapters into structured academic modules."""
+    __tablename__ = "course_units"
+
+    course_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("courses.id", ondelete="CASCADE"), index=True, nullable=False
+    )
+    unit_number: Mapped[int] = mapped_column(Integer, default=1)
+    title: Mapped[str] = mapped_column(String(255), nullable=False)
+    description: Mapped[Optional[str]] = mapped_column(Text)
+    order_index: Mapped[int] = mapped_column(Integer, default=0)
+
+
+class TopicCurriculumDetail(UUIDPrimaryKeyMixin, TimestampMixin, Base):
+    """
+    Production-level comprehensive 14-facet educational content entity.
+    Provides textbook-quality theory, worked examples, visual diagrams,
+    common mistakes, interview questions, exam tips, and memory tricks.
+    """
+    __tablename__ = "topic_curriculum_details"
+
+    topic_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("topics.id", ondelete="CASCADE"), unique=True, index=True, nullable=False
+    )
+    overview: Mapped[str] = mapped_column(Text, nullable=False)
+    learning_objectives: Mapped[List[str]] = mapped_column(JSONB, default=list)
+    prerequisites: Mapped[List[str]] = mapped_column(JSONB, default=list)
+    estimated_study_time_minutes: Mapped[int] = mapped_column(Integer, default=30)
+    difficulty_level: Mapped[str] = mapped_column(String(30), default="intermediate")
+    real_world_applications: Mapped[List[str]] = mapped_column(JSONB, default=list)
+    
+    # Detailed Explanation
+    theory_markdown: Mapped[str] = mapped_column(Text, nullable=False)
+    worked_examples: Mapped[List[Dict[str, Any]]] = mapped_column(JSONB, default=list)
+    visual_diagrams: Mapped[List[Dict[str, Any]]] = mapped_column(JSONB, default=list)
+    important_notes: Mapped[List[str]] = mapped_column(JSONB, default=list)
+    common_mistakes: Mapped[List[Dict[str, str]]] = mapped_column(JSONB, default=list)
+    interview_questions: Mapped[List[Dict[str, Any]]] = mapped_column(JSONB, default=list)
+    competitive_exam_tips: Mapped[List[str]] = mapped_column(JSONB, default=list)
+    memory_tricks: Mapped[List[str]] = mapped_column(JSONB, default=list)
+    summary: Mapped[str] = mapped_column(Text, nullable=False)
+    key_takeaways: Mapped[List[str]] = mapped_column(JSONB, default=list)
+    faqs: Mapped[List[Dict[str, str]]] = mapped_column(JSONB, default=list)
+
+
+class TopicReferenceMaterial(UUIDPrimaryKeyMixin, TimestampMixin, Base):
+    """Curated reference material: Books, Research Papers, Documentation, Official Websites, Coding Platforms."""
+    __tablename__ = "topic_reference_materials"
+
+    topic_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("topics.id", ondelete="CASCADE"), index=True, nullable=False
+    )
+    material_type: Mapped[str] = mapped_column(String(50), nullable=False)  # book, paper, documentation, website, tutorial, coding_platform
+    title: Mapped[str] = mapped_column(String(300), nullable=False)
+    author_or_source: Mapped[Optional[str]] = mapped_column(String(255))
+    url: Mapped[Optional[str]] = mapped_column(String(2048))
+    description: Mapped[Optional[str]] = mapped_column(Text)
+    isbn_or_doi: Mapped[Optional[str]] = mapped_column(String(100))
+    is_essential: Mapped[bool] = mapped_column(Boolean, default=False)
+
+
+class TopicPracticeProblem(UUIDPrimaryKeyMixin, TimestampMixin, Base):
+    """Topic-specific practice questions (MCQ, Numerical, Theory, Coding, PYQ)."""
+    __tablename__ = "topic_practice_problems"
+
+    topic_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("topics.id", ondelete="CASCADE"), index=True, nullable=False
+    )
+    problem_type: Mapped[str] = mapped_column(String(50), default="mcq")  # mcq, numerical, theory, coding, case_study, pyq
+    question_text: Mapped[str] = mapped_column(Text, nullable=False)
+    options: Mapped[Optional[List[str]]] = mapped_column(JSONB, default=list)
+    correct_answer: Mapped[str] = mapped_column(Text, nullable=False)
+    explanation: Mapped[str] = mapped_column(Text, nullable=False)
+    hint: Mapped[Optional[str]] = mapped_column(Text)
+    difficulty: Mapped[str] = mapped_column(String(30), default="medium")
+    exam_tag: Mapped[Optional[str]] = mapped_column(String(100))  # e.g., "JEE Main 2023", "GATE CS 2022", "UPSC 2021"
+    estimated_time_minutes: Mapped[int] = mapped_column(Integer, default=5)
+    code_starter: Mapped[Optional[Dict[str, str]]] = mapped_column(JSONB, default=dict)
+
