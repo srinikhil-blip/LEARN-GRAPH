@@ -9,6 +9,7 @@ import {
   AlertTriangle,
   Lightbulb,
   Award,
+  ChevronLeft,
   ChevronRight,
   Code2,
   HelpCircle,
@@ -44,6 +45,10 @@ interface TopicDetailModalProps {
   onClose: () => void;
   onMarkCompleted?: (topicId: string) => void;
   isCompleted?: boolean;
+  onNextTopic?: () => void;
+  onPrevTopic?: () => void;
+  hasNextTopic?: boolean;
+  hasPrevTopic?: boolean;
 }
 
 export function TopicDetailModal({
@@ -51,6 +56,10 @@ export function TopicDetailModal({
   onClose,
   onMarkCompleted,
   isCompleted = false,
+  onNextTopic,
+  onPrevTopic,
+  hasNextTopic = false,
+  hasPrevTopic = false,
 }: TopicDetailModalProps) {
   const navigate = useNavigate();
   const [activeSection, setActiveSection] = useState<
@@ -815,10 +824,30 @@ export function TopicDetailModal({
         </div>
 
         {/* Modal Bottom Footer */}
-        <div className="px-6 py-3.5 border-t border-slate-200 dark:border-slate-800 bg-slate-50/70 dark:bg-slate-950/60 flex items-center justify-between text-xs">
-          <span className="text-slate-500">
-            {topicData.courseTitle} · Unit Module
-          </span>
+        <div className="px-6 py-3.5 border-t border-slate-200 dark:border-slate-800 bg-slate-50/70 dark:bg-slate-950/60 flex flex-col sm:flex-row items-center justify-between gap-3 text-xs">
+          <div className="flex items-center gap-2">
+            {onPrevTopic && (
+              <Button
+                variant="secondary"
+                disabled={!hasPrevTopic}
+                onClick={onPrevTopic}
+                className="text-xs py-1.5 gap-1"
+              >
+                <ChevronLeft size={14} /> Previous Topic
+              </Button>
+            )}
+            {onNextTopic && (
+              <Button
+                variant="secondary"
+                disabled={!hasNextTopic}
+                onClick={onNextTopic}
+                className="text-xs py-1.5 gap-1"
+              >
+                Next Topic <ChevronRight size={14} />
+              </Button>
+            )}
+          </div>
+
           <div className="flex items-center gap-2">
             <Button variant="secondary" onClick={onClose} className="text-xs py-1.5">
               Close Reader

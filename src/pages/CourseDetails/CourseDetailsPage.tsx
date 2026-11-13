@@ -71,6 +71,7 @@ export function CourseDetailsPage() {
   const [bundle, setBundle] = useState<CourseResourcesBundle | null>(null);
   const [selectedTopicModal, setSelectedTopicModal] = useState<TopicCurriculumPayload | null>(null);
   const [curriculumSearch, setCurriculumSearch] = useState("");
+  const [showAllRoadmap, setShowAllRoadmap] = useState(false);
 
   // Initialize and sync completed lessons, saved resources, and videos
   useEffect(() => {
@@ -151,6 +152,37 @@ export function CourseDetailsPage() {
       course.tier
     );
     setSelectedTopicModal(payload);
+  };
+
+  // Topic sequential navigation calculations
+  const currentTopicIndex = allLessons.findIndex(
+    (l: any) =>
+      selectedTopicModal &&
+      (l.title === selectedTopicModal.topicTitle ||
+        l.title.includes(selectedTopicModal.topicTitle) ||
+        selectedTopicModal.topicTitle.includes(l.title.replace(/^\d+\.\s*/, "")))
+  );
+  const hasPrevTopic = currentTopicIndex > 0;
+  const hasNextTopic = currentTopicIndex >= 0 && currentTopicIndex < allLessons.length - 1;
+
+  const handlePrevTopic = () => {
+    if (hasPrevTopic) {
+      const prevLesson = allLessons[currentTopicIndex - 1];
+      const parentChapter = realChapters.find((ch: any) =>
+        (ch.lessons || []).some((l: any) => l.id === prevLesson.id)
+      );
+      handleOpenTopicDetails(prevLesson.title, parentChapter?.title || course?.title || "");
+    }
+  };
+
+  const handleNextTopic = () => {
+    if (hasNextTopic) {
+      const nextLesson = allLessons[currentTopicIndex + 1];
+      const parentChapter = realChapters.find((ch: any) =>
+        (ch.lessons || []).some((l: any) => l.id === nextLesson.id)
+      );
+      handleOpenTopicDetails(nextLesson.title, parentChapter?.title || course?.title || "");
+    }
   };
 
   const handleToggleSaveResource = (resId: string) => {
@@ -356,19 +388,33 @@ export function CourseDetailsPage() {
       {/* Tab 1: Curriculum & Lessons */}
       {activeTab === "curriculum" && (
         <div className="space-y-4">
-          {/* Learning Path Flow */}
-          {course.learningPath && (
+          {/* Complete Recommended Learning Roadmap */}
+          {course.learningPath && course.learningPath.length > 0 && (
             <div className="p-5 rounded-2xl bg-indigo-50/60 dark:bg-indigo-950/30 border border-indigo-100 dark:border-indigo-900/60 space-y-3">
-              <span className="text-xs font-bold uppercase tracking-wider text-indigo-700 dark:text-indigo-300 flex items-center gap-1.5">
-                <Target size={14} /> Recommended Learning Path
-              </span>
-              <div className="flex flex-wrap items-center gap-2">
-                {course.learningPath.map((step, idx) => (
+              <div className="flex items-center justify-between">
+                <span className="text-xs font-bold uppercase tracking-wider text-indigo-700 dark:text-indigo-300 flex items-center gap-1.5">
+                  <Target size={14} /> Recommended Learning Roadmap ({course.learningPath.length} Milestones)
+                </span>
+                {course.learningPath.length > 8 && (
+                  <button
+                    onClick={() => setShowAllRoadmap(!showAllRoadmap)}
+                    className="text-xs text-indigo-600 dark:text-indigo-400 font-semibold hover:underline"
+                  >
+                    {showAllRoadmap ? "Collapse Roadmap" : `View All ${course.learningPath.length} Steps`}
+                  </button>
+                )}
+              </div>
+              <div className="flex flex-wrap items-center gap-2 max-h-72 overflow-y-auto pr-1 scrollbar-thin">
+                {(showAllRoadmap ? course.learningPath : course.learningPath.slice(0, 8)).map((step, idx) => (
                   <div key={step} className="flex items-center gap-2">
-                    <span className="px-3 py-1.5 rounded-xl bg-white dark:bg-slate-900 border border-indigo-200 dark:border-indigo-800 text-xs font-semibold text-slate-800 dark:text-slate-200 shadow-2xs">
-                      {idx + 1}. {step}
-                    </span>
-                    {idx < (course.learningPath?.length || 0) - 1 && (
+                    <button
+                      onClick={() => setCurriculumSearch(step.replace(/^\d+\.\s*/, ""))}
+                      title="Filter syllabus to this milestone"
+                      className="px-3 py-1.5 rounded-xl bg-white dark:bg-slate-900 border border-indigo-200 dark:border-indigo-800 text-xs font-semibold text-slate-800 dark:text-slate-200 shadow-2xs hover:border-indigo-500 hover:text-indigo-600 transition-all text-left"
+                    >
+                      {step.startsWith(`${idx + 1}.`) ? step : `${idx + 1}. ${step}`}
+                    </button>
+                    {idx < (showAllRoadmap ? course.learningPath.length : Math.min(8, course.learningPath.length)) - 1 && (
                       <ArrowRight size={13} className="text-indigo-400 shrink-0" />
                     )}
                   </div>
@@ -872,6 +918,10 @@ export function CourseDetailsPage() {
             ? completedLessonIds.has(selectedTopicModal.topicId)
             : false
         }
+        onNextTopic={handleNextTopic}
+        onPrevTopic={handlePrevTopic}
+        hasNextTopic={hasNextTopic}
+        hasPrevTopic={hasPrevTopic}
       />
     </div>
   );
