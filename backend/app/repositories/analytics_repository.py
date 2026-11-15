@@ -44,9 +44,13 @@ class AnalyticsRepository:
         )
         weak_count = (await self._session.execute(weak_stmt)).scalar() or 0
 
-        # 4. Student profile for XP & streak
+        # 4. Student profile and verified streak
         prof_stmt = select(StudentProfile).where(StudentProfile.user_id == student_id)
         prof = (await self._session.execute(prof_stmt)).scalar_one_or_none()
+
+        from app.services.streak_service import StreakService
+        streak_svc = StreakService(self._session)
+        streak_data = await streak_svc.get_streak(student_id)
 
         return {
             "total_quizzes": quiz_res.total_quizzes or 0,
@@ -55,7 +59,11 @@ class AnalyticsRepository:
             "unresolved_weak_concepts": weak_count,
             "xp_points": prof.xp_points if prof else 0,
             "level": prof.level if prof else 1,
-            "streak_days": prof.streak_days if prof else 0,
+            "streak_days": streak_data.current_streak,
+            "longest_streak": streak_data.longest_streak,
+            "is_active_today": streak_data.is_active_today,
+            "weekly_streak_days": streak_data.weekly_activity,
+            "total_active_days": streak_data.total_active_days,
             "mastery_score": prof.mastery_score if prof else 0.0,
         }
 

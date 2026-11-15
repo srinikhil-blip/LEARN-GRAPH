@@ -1,3 +1,4 @@
+import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import {
   ArrowRight,
@@ -16,9 +17,11 @@ import { Button } from "@/components/ui/Button";
 import { Tag } from "@/components/ui/Tag";
 import { AvatarStack } from "@/components/ui/Avatar";
 import { ROUTES } from "@/constants/routes";
+import { WatchDemoModal } from "@/components/demo/WatchDemoModal";
 
 export function LandingPage() {
   const navigate = useNavigate();
+  const [isDemoModalOpen, setIsDemoModalOpen] = useState(false);
 
   const features = [
     {
@@ -77,7 +80,7 @@ export function LandingPage() {
               <Button onClick={() => navigate(ROUTES.DASHBOARD)}>
                 Get started free <ArrowRight size={17} />
               </Button>
-              <Button variant="secondary">
+              <Button variant="secondary" onClick={() => setIsDemoModalOpen(true)}>
                 <Play size={16} fill="currentColor" /> Watch demo
               </Button>
             </div>
@@ -326,6 +329,11 @@ export function LandingPage() {
           <a>Contact</a>
         </div>
       </footer>
+
+      <WatchDemoModal
+        isOpen={isDemoModalOpen}
+        onClose={() => setIsDemoModalOpen(false)}
+      />
     </div>
   );
 }

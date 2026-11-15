@@ -4,9 +4,10 @@ Gamification and academic metadata for students.
 """
 
 import uuid
+from datetime import date
 from typing import TYPE_CHECKING, List, Optional
 
-from sqlalchemy import Float, ForeignKey, Index, Integer, String
+from sqlalchemy import Date, Float, ForeignKey, Index, Integer, String
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
@@ -49,6 +50,9 @@ class StudentProfile(UUIDPrimaryKeyMixin, TimestampMixin, Base):
     level: Mapped[int] = mapped_column(Integer, nullable=False, default=1)
     xp_points: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
     streak_days: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+    longest_streak: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+    last_activity_date: Mapped[Optional[date]] = mapped_column(Date, nullable=True)
+    total_active_days: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
 
     # Aggregate stats
     total_study_hours: Mapped[float] = mapped_column(

@@ -27,9 +27,15 @@ import { Progress } from "@/components/ui/Progress";
 import { SparkChart } from "@/components/common/SparkChart";
 import { MiniGraph } from "@/components/common/MiniGraph";
 import { ROUTES } from "@/constants/routes";
+import { cn } from "@/utils/cn";
 import { useStudent } from "@/hooks/useStudent";
 import { useAuth } from "@/hooks/useAuth";
-import { userProgressService, type UserLearningState } from "@/services/userProgressService";
+import {
+  userProgressService,
+  type UserLearningState,
+  getLocalDayOfWeekIndex,
+} from "@/services/userProgressService";
+import { streakApi, type StreakInfo } from "@/api/streak";
 import { MOCK_COURSES } from "@/mock/courses.mock";
 
 export function DashboardPage() {
@@ -39,20 +45,41 @@ export function DashboardPage() {
   const [learningState, setLearningState] = useState<UserLearningState>(() =>
     userProgressService.getState()
   );
+  const [streakInfo, setStreakInfo] = useState<StreakInfo>(() =>
+    userProgressService.getStreakInfo()
+  );
+  const [celebratingMilestone, setCelebratingMilestone] = useState<number | null>(null);
 
   useEffect(() => {
+    // Initial fetch from backend streak engine
+    streakApi
+      .getStreak()
+      .then((data) => setStreakInfo(data))
+      .catch(() => {});
+
     const handleUpdate = () => {
       setLearningState(userProgressService.getState());
+      setStreakInfo(userProgressService.getStreakInfo());
     };
+
+    const handleMilestone = (e: Event) => {
+      const custom = e as CustomEvent<{ milestone: number }>;
+      if (custom.detail?.milestone) {
+        setCelebratingMilestone(custom.detail.milestone);
+      }
+    };
+
     window.addEventListener("learngraph:progress-updated", handleUpdate);
+    window.addEventListener("learngraph:streak-milestone", handleMilestone);
     return () => {
       window.removeEventListener("learngraph:progress-updated", handleUpdate);
+      window.removeEventListener("learngraph:streak-milestone", handleMilestone);
     };
   }, []);
 
   // Real statistics strictly tied to active authenticated user
   const mastery = progress?.overallMastery ?? 0;
-  const streak = progress?.dailyStreak ?? 0;
+  const streak = streakInfo.current_streak;
   const focusHours = progress?.focusTimeHours ?? 0;
   const mastered = progress?.masteredConcepts ?? 0;
   const total = progress?.totalConcepts ?? 84;
@@ -73,8 +100,8 @@ export function DashboardPage() {
       .toUpperCase();
   }, []);
 
-  // Days of week for streak (Mon - Sun)
-  const currentDayOfWeekIdx = (new Date().getDay() + 6) % 7;
+  // Days of week for streak (Mon - Sun in user authoritative timezone)
+  const currentDayOfWeekIdx = getLocalDayOfWeekIndex(streakInfo.user_timezone);
   const daysOfWeekLabels = ["M", "T", "W", "T", "F", "S", "S"];
 
   // Active course lookup
@@ -125,6 +152,30 @@ export function DashboardPage() {
         }
       />
 
+      {celebratingMilestone !== null && (
+        <div className="mb-6 p-4 rounded-2xl bg-gradient-to-r from-amber-500/20 via-orange-500/20 to-amber-500/20 border border-amber-500/40 flex items-center justify-between shadow-lg animate-in fade-in slide-in-from-top-2">
+          <div className="flex items-center gap-3">
+            <span className="flex items-center justify-center w-10 h-10 rounded-xl bg-amber-500/30 text-amber-300 border border-amber-400/40 text-xl">
+              🏆
+            </span>
+            <div>
+              <p className="text-sm font-bold text-amber-200">
+                Achievement Unlocked: {celebratingMilestone}-Day Learning Streak!
+              </p>
+              <p className="text-xs text-amber-300/80 mt-0.5">
+                You have reached an extraordinary milestone through genuine daily learning effort.
+              </p>
+            </div>
+          </div>
+          <button
+            onClick={() => setCelebratingMilestone(null)}
+            className="px-3 py-1.5 rounded-lg bg-amber-500/20 hover:bg-amber-500/30 text-amber-200 text-xs font-semibold border border-amber-500/30 transition-colors"
+          >
+            Dismiss
+          </button>
+        </div>
+      )}
+
       <div className="stat-grid">
         {/* Stat 1: Overall Mastery */}
         <article className="stat-card">
@@ -151,7 +202,11 @@ export function DashboardPage() {
               <Flame />
             </span>
             <span className="stat-meta">
-              {streak > 0 ? `Streak: ${streak} days` : "Start today"}
+              {streakInfo.longest_streak > 0
+                ? `Best: ${streakInfo.longest_streak}d`
+                : streak > 0
+                ? `Streak: ${streak}d`
+                : "Start today"}
             </span>
           </div>
           <small>DAILY STREAK</small>
@@ -160,18 +215,47 @@ export function DashboardPage() {
           </h3>
           <div className="week-row">
             {daysOfWeekLabels.map((d, i) => {
-              const isComplete = learningState.weeklyStreakDays[i];
+              const isComplete = streakInfo.weekly_activity[i];
               const isToday = i === currentDayOfWeekIdx;
               return (
                 <span
                   key={i}
-                  className={isComplete ? "complete" : isToday ? "today" : ""}
+                  className={
+                    isComplete
+                      ? isToday
+                        ? "complete today"
+                        : "complete"
+                      : isToday
+                      ? "today"
+                      : ""
+                  }
+                  title={
+                    isToday
+                      ? streakInfo.is_active_today
+                        ? "Today (Completed)"
+                        : "Today (Pending activity)"
+                      : isComplete
+                      ? "Completed qualifying learning"
+                      : "No activity logged"
+                  }
                 >
                   {isComplete ? <Check size={12} /> : d}
                 </span>
               );
             })}
           </div>
+          <p
+            className={cn(
+              "text-[11px] mt-2 font-medium leading-tight",
+              streakInfo.is_active_today
+                ? "text-emerald-400"
+                : streak > 0
+                ? "text-amber-300"
+                : "text-[var(--muted)]"
+            )}
+          >
+            {streakInfo.motivational_message}
+          </p>
         </article>
 
         {/* Stat 3: Focus Time */}

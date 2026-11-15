@@ -24,6 +24,11 @@ export const API_CONFIG = {
       dashboard: "/students/dashboard",
       studyPlan: "/students/study-plan",
     },
+    streak: {
+      get: "/streak",
+      activity: "/streak/activity",
+      history: "/streak/history",
+    },
     courses: {
       list: "/courses",
       details: (id: string) => `/courses/${id}`,

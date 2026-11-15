@@ -4,13 +4,14 @@
  * 
  * Strict Zero-State Policy:
  * - Brand new accounts start with exact 0s (0 courses, 0 lessons, 0% mastery, 0h study time, 0 streak).
- * - Every learning action (completing a lesson, taking a quiz, starting a course, chatting with AI)
- *   automatically and immediately updates the user's progress and stats.
- * - Stores state in local persistent storage per user ID and syncs with backend /api/v1/student/progress endpoints.
+ * - Every verified learning action (completing a lesson, taking a quiz)
+ *   automatically and immediately updates the user's progress and daily streak.
+ * - Stores state in local persistent storage per user ID and syncs with backend APIs.
  */
 
 import { apiClient } from "@/api/client";
 import type { StudentStats, StudyPlanItem, AchievementItem, CertificateItem } from "@/types/student";
+import type { StreakInfo, StreakRecordResult, StreakHistoryDay } from "@/api/streak";
 
 export interface UserLearningState {
   userId: string;
@@ -31,8 +32,21 @@ export interface UserLearningState {
   chatSessionsCount: number;
   recentChatTopics: string[];
   streakDays: number;
+  longestStreak: number;
+  totalActiveDays: number;
   lastActiveDate: string | null;
   weeklyStreakDays: boolean[]; // 7 days (M-S)
+  dailyActivities: Array<{
+    id: string;
+    type: string;
+    date: string;
+    timestamp: string;
+    courseId?: string;
+    lessonId?: string;
+    quizId?: string;
+    score?: number;
+  }>;
+  celebratedMilestones: number[];
   masteredConcepts: string[];
   learningConcepts: string[];
   weakConcepts: string[];
@@ -43,8 +57,7 @@ export interface UserLearningState {
 }
 
 const STORAGE_PREFIX = "learngraph_progress_v2_";
-// Increment DATA_VERSION to force-clear all old cached progress data
-const DATA_VERSION = 3;
+const DATA_VERSION = 4; // Bumped for persistent daily streak architecture
 
 function getActiveUserId(): string {
   try {
@@ -74,6 +87,61 @@ function getActiveUserEmail(): string {
   return "";
 }
 
+/**
+ * Get authoritative local calendar date (YYYY-MM-DD) for a given timezone.
+ * Defaults to Asia/Kolkata if no timezone provided.
+ */
+export function getLocalCalendarDate(tz?: string): string {
+  try {
+    const timeZone = tz || Intl.DateTimeFormat().resolvedOptions().timeZone || "Asia/Kolkata";
+    const formatter = new Intl.DateTimeFormat("en-CA", {
+      timeZone,
+      year: "numeric",
+      month: "2-digit",
+      day: "2-digit",
+    });
+    return formatter.format(new Date());
+  } catch {
+    return new Date().toLocaleDateString("en-CA");
+  }
+}
+
+/**
+ * Deterministically compute the calendar date of the preceding day (YYYY-MM-DD).
+ */
+export function getYesterdayCalendarDate(todayStr: string): string {
+  const parts = todayStr.split("-").map(Number);
+  const dt = new Date(Date.UTC(parts[0], parts[1] - 1, parts[2]));
+  dt.setUTCDate(dt.getUTCDate() - 1);
+  return dt.toISOString().slice(0, 10);
+}
+
+/**
+ * Get index of current day in Monday-Sunday week (0 = Monday, 6 = Sunday).
+ */
+export function getLocalDayOfWeekIndex(tz?: string): number {
+  try {
+    const timeZone = tz || Intl.DateTimeFormat().resolvedOptions().timeZone || "Asia/Kolkata";
+    // Get weekday in user timezone
+    const parts = new Intl.DateTimeFormat("en-US", {
+      timeZone,
+      weekday: "short",
+    }).format(new Date());
+    const dayMap: Record<string, number> = {
+      Mon: 0,
+      Tue: 1,
+      Wed: 2,
+      Thu: 3,
+      Fri: 4,
+      Sat: 5,
+      Sun: 6,
+    };
+    return dayMap[parts] ?? (new Date().getDay() + 6) % 7;
+  } catch {
+    return (new Date().getDay() + 6) % 7;
+  }
+}
+
 export function createZeroState(userId: string, email: string): UserLearningState {
   return {
     userId,
@@ -86,8 +154,12 @@ export function createZeroState(userId: string, email: string): UserLearningStat
     chatSessionsCount: 0,
     recentChatTopics: [],
     streakDays: 0,
+    longestStreak: 0,
+    totalActiveDays: 0,
     lastActiveDate: null,
     weeklyStreakDays: [false, false, false, false, false, false, false],
+    dailyActivities: [],
+    celebratedMilestones: [],
     masteredConcepts: [],
     learningConcepts: [],
     weakConcepts: [],
@@ -112,19 +184,16 @@ export const userProgressService = {
       if (saved) {
         const parsed = JSON.parse(saved);
         if (parsed && typeof parsed === "object") {
-          // Force-clear if data version doesn't match (removes old fake/mock data)
-          if ((parsed._dataVersion || 0) < DATA_VERSION) {
-            console.info("[LearnGraph] Clearing stale progress cache (version mismatch). Starting fresh.");
-            localStorage.removeItem(storageKey);
-            const freshState = createZeroState(userId, email);
-            this.saveState(freshState);
-            return freshState;
-          }
+          // If version matches or upgraded, ensure all fields exist
           return {
             ...createZeroState(userId, email),
             ...parsed,
             userId,
             email,
+            dailyActivities: parsed.dailyActivities || [],
+            celebratedMilestones: parsed.celebratedMilestones || [],
+            longestStreak: parsed.longestStreak ?? parsed.streakDays ?? 0,
+            totalActiveDays: parsed.totalActiveDays ?? (parsed.streakDays > 0 ? parsed.streakDays : 0),
           };
         }
       }
@@ -138,14 +207,14 @@ export const userProgressService = {
   },
 
   /**
-   * Save the state to localStorage and broadcast real-time event.
+   * Save state to localStorage and broadcast real-time event.
    */
   saveState(state: UserLearningState): void {
     const storageKey = STORAGE_PREFIX + state.userId;
     try {
       localStorage.setItem(storageKey, JSON.stringify(state));
     } catch {
-      // ignore storage quota errors
+      // ignore quota
     }
 
     // Broadcast across windows and components
@@ -162,13 +231,12 @@ export const userProgressService = {
   },
 
   /**
-   * Enroll the user in a course.
+   * Enroll the user in a course (does NOT advance streak; streak requires learning activity).
    */
   enrollCourse(courseId: string): UserLearningState {
     const state = this.getState();
     if (!state.coursesEnrolled.includes(courseId)) {
       state.coursesEnrolled.push(courseId);
-      this.updateStreak(state);
       this.saveState(state);
     }
     return state;
@@ -176,7 +244,7 @@ export const userProgressService = {
 
   /**
    * Complete or uncomplete a lesson in a course.
-   * Updates study time (+25 min), streak, and course completion.
+   * Completing a lesson is a verified qualifying learning activity that advances the daily streak.
    */
   toggleLesson(
     courseId: string,
@@ -197,10 +265,10 @@ export const userProgressService = {
       state.completedLessons[courseId] = currentLessons.filter((id) => id !== lessonId);
       state.studyTimeMinutes = Math.max(0, state.studyTimeMinutes - durationMinutes);
       completed = false;
+      this.saveState(state);
     } else {
       state.completedLessons[courseId] = [...currentLessons, lessonId];
       state.studyTimeMinutes += durationMinutes;
-      this.updateStreak(state);
       completed = true;
 
       // Check if course is fully completed
@@ -209,7 +277,6 @@ export const userProgressService = {
         !state.coursesCompleted.includes(courseId)
       ) {
         state.coursesCompleted.push(courseId);
-        // Generate certificate
         const certId = "cert-" + Date.now();
         state.certificates.push({
           id: certId,
@@ -222,15 +289,35 @@ export const userProgressService = {
           verified: true,
         });
       }
+
+      this.saveState(state);
+
+      // Record verified learning activity & advance daily streak
+      this.recordQualifyingActivity({
+        activity_type: "lesson_completion",
+        course_id: courseId,
+        lesson_id: lessonId,
+      });
+
+      // Asynchronously sync with backend endpoint
+      if (state.userId !== "guest_user") {
+        apiClient
+          .post("/streak/activity", {
+            activity_type: "lesson_completion",
+            course_id: courseId,
+            lesson_id: lessonId,
+            timezone: Intl.DateTimeFormat().resolvedOptions().timeZone || "Asia/Kolkata",
+          })
+          .catch(() => {});
+      }
     }
 
-    this.saveState(state);
     return { state, completed };
   },
 
   /**
-   * Record a quiz attempt with score.
-   * Recalculates average score, mastery %, and weak/mastered concepts.
+   * Record a quiz attempt.
+   * Submitting a quiz is a verified qualifying learning activity that advances the daily streak.
    */
   recordQuiz(
     quizId: string,
@@ -253,7 +340,6 @@ export const userProgressService = {
     });
 
     state.studyTimeMinutes += 15; // +15 mins for quiz
-    this.updateStreak(state);
 
     if (conceptName) {
       if (percent >= 80) {
@@ -269,7 +355,220 @@ export const userProgressService = {
     }
 
     this.saveState(state);
+
+    // Record verified qualifying activity & advance daily streak
+    this.recordQualifyingActivity({
+      activity_type: "quiz_completion",
+      quiz_id: quizId,
+      score: percent,
+    });
+
+    // Asynchronously sync with backend endpoint
+    if (state.userId !== "guest_user") {
+      apiClient
+        .post("/streak/activity", {
+          activity_type: "quiz_completion",
+          quiz_id: quizId,
+          score: percent,
+          timezone: Intl.DateTimeFormat().resolvedOptions().timeZone || "Asia/Kolkata",
+        })
+        .catch(() => {});
+    }
+
     return state;
+  },
+
+  /**
+   * Record a verified qualifying learning activity.
+   * - Enforces maximum 1 streak increment per calendar date.
+   * - Increases streak on consecutive calendar days.
+   * - Breaks streak if a complete calendar day is missed.
+   * - Restarts streak at 1 on returning after a break.
+   * - Preserves longest streak permanently.
+   */
+  recordQualifyingActivity(payload: {
+    activity_type: string;
+    course_id?: string;
+    lesson_id?: string;
+    quiz_id?: string;
+    score?: number;
+    timezone?: string;
+  }): StreakRecordResult {
+    const state = this.getState();
+    const tz = payload.timezone || Intl.DateTimeFormat().resolvedOptions().timeZone || "Asia/Kolkata";
+    const today = getLocalCalendarDate(tz);
+    const yesterday = getYesterdayCalendarDate(today);
+
+    // Update 7-day indicator
+    const localDayIdx = getLocalDayOfWeekIndex(tz);
+    state.weeklyStreakDays[localDayIdx] = true;
+
+    // Check if already active today
+    const alreadyActiveToday =
+      state.dailyActivities.some((a) => a.date === today) || state.lastActiveDate === today;
+
+    const activityId = "act-" + Date.now();
+    const nowIso = new Date().toISOString();
+    state.dailyActivities.push({
+      id: activityId,
+      type: payload.activity_type,
+      date: today,
+      timestamp: nowIso,
+      courseId: payload.course_id,
+      lessonId: payload.lesson_id,
+      quizId: payload.quiz_id,
+      score: payload.score,
+    });
+
+    let newMilestone: number | null = null;
+    let message = "";
+
+    if (alreadyActiveToday) {
+      // Activity recorded; streak already maintained today
+      message = "Learning activity verified! Streak maintained for today.";
+    } else {
+      // First qualifying activity of today!
+      if (state.lastActiveDate === yesterday) {
+        state.streakDays += 1;
+        message = `Daily streak advanced to ${state.streakDays} days!`;
+      } else {
+        // First activity or restarting after missing a full calendar day
+        state.streakDays = 1;
+        message = "Daily streak started! 1 day recorded.";
+      }
+
+      state.lastActiveDate = today;
+      state.totalActiveDays = (state.totalActiveDays || 0) + 1;
+      state.longestStreak = Math.max(state.longestStreak || 0, state.streakDays);
+
+      const MILESTONES = [3, 7, 14, 30, 50, 100];
+      if (
+        MILESTONES.includes(state.streakDays) &&
+        !state.celebratedMilestones.includes(state.streakDays)
+      ) {
+        newMilestone = state.streakDays;
+        state.celebratedMilestones.push(state.streakDays);
+        message = `Incredible milestone reached: ${state.streakDays}-Day Streak!`;
+        window.dispatchEvent(
+          new CustomEvent("learngraph:streak-milestone", { detail: { milestone: state.streakDays } })
+        );
+      }
+    }
+
+    this.saveState(state);
+
+    return {
+      success: true,
+      streak: this.getStreakInfo(),
+      activity: {
+        id: activityId,
+        activity_type: payload.activity_type,
+        activity_date: today,
+        created_at: nowIso,
+      },
+      message,
+      new_milestone_reached: newMilestone,
+    };
+  },
+
+  /**
+   * Inspect authoritative streak state for the active student.
+   */
+  getStreakInfo(): StreakInfo {
+    const state = this.getState();
+    const tz = Intl.DateTimeFormat().resolvedOptions().timeZone || "Asia/Kolkata";
+    const today = getLocalCalendarDate(tz);
+    const yesterday = getYesterdayCalendarDate(today);
+
+    const is_active_today =
+      state.lastActiveDate === today || state.dailyActivities.some((a) => a.date === today);
+
+    let currentStreak = state.streakDays;
+
+    if (!state.lastActiveDate) {
+      currentStreak = 0;
+    } else if (is_active_today) {
+      currentStreak = state.streakDays;
+    } else if (state.lastActiveDate === yesterday) {
+      // Studied yesterday, hasn't completed a lesson yet today.
+      // Preserved! Do NOT prematurely reset to 0 before the day ends.
+      currentStreak = state.streakDays;
+    } else {
+      // Missed at least 1 full calendar day
+      currentStreak = 0;
+    }
+
+    const longestStreak = Math.max(state.longestStreak || 0, state.streakDays);
+    const MILESTONES = [3, 7, 14, 30, 50, 100];
+    const unlocked = MILESTONES.filter((m) => currentStreak >= m);
+    const remaining = MILESTONES.filter((m) => currentStreak < m);
+    const next_m = remaining.length > 0 ? remaining[0] : 150;
+    const days_left = Math.max(0, next_m - currentStreak);
+
+    let msg = "";
+    if (currentStreak === 0) {
+      msg = "Complete a lesson or quiz today to start your daily streak!";
+    } else if (is_active_today) {
+      msg = `Streak active! Great job learning today (${currentStreak}-day streak).`;
+    } else {
+      msg = `Streak alive! Complete a lesson today to continue your ${currentStreak}-day streak.`;
+    }
+
+    return {
+      current_streak: currentStreak,
+      longest_streak: longestStreak,
+      total_active_days: state.totalActiveDays || (currentStreak > 0 ? currentStreak : 0),
+      last_activity_date: state.lastActiveDate,
+      is_active_today,
+      today_date: today,
+      user_timezone: tz,
+      weekly_activity: state.weeklyStreakDays,
+      weekly_labels: ["M", "T", "W", "T", "F", "S", "S"],
+      motivational_message: msg,
+      next_milestone: next_m,
+      days_to_next_milestone: days_left,
+      unlocked_milestones: unlocked,
+      new_milestone_achieved: null,
+    };
+  },
+
+  /**
+   * Sync streak attributes when verified data arrives from the backend API.
+   */
+  syncStreakFromBackend(backendStreak: StreakInfo): void {
+    const state = this.getState();
+    state.streakDays = backendStreak.current_streak;
+    state.longestStreak = Math.max(state.longestStreak || 0, backendStreak.longest_streak);
+    state.lastActiveDate = backendStreak.last_activity_date || state.lastActiveDate;
+    state.totalActiveDays = backendStreak.total_active_days;
+    state.weeklyStreakDays = backendStreak.weekly_activity;
+    this.saveState(state);
+  },
+
+  /**
+   * Retrieve calendar history for the past N days.
+   */
+  getStreakHistory(days = 30): { history: StreakHistoryDay[] } {
+    const state = this.getState();
+    const tz = Intl.DateTimeFormat().resolvedOptions().timeZone || "Asia/Kolkata";
+    const today = getLocalCalendarDate(tz);
+
+    const history: StreakHistoryDay[] = [];
+    for (let i = days - 1; i >= 0; i--) {
+      const parts = today.split("-").map(Number);
+      const d = new Date(Date.UTC(parts[0], parts[1] - 1, parts[2]));
+      d.setUTCDate(d.getUTCDate() - i);
+      const dateStr = d.toISOString().slice(0, 10);
+
+      const matchingActs = state.dailyActivities.filter((a) => a.date === dateStr);
+      history.push({
+        date: dateStr,
+        activity_count: matchingActs.length,
+        activity_types: Array.from(new Set(matchingActs.map((a) => a.type))),
+      });
+    }
+
+    return { history };
   },
 
   /**
@@ -282,7 +581,6 @@ export const userProgressService = {
       state.recentChatTopics.unshift(topic);
       if (state.recentChatTopics.length > 5) state.recentChatTopics.pop();
     }
-    this.updateStreak(state);
     this.saveState(state);
     return state;
   },
@@ -306,36 +604,12 @@ export const userProgressService = {
   },
 
   /**
-   * Helper to advance daily streak and weekly active day flags.
-   */
-  updateStreak(state: UserLearningState): void {
-    const today = new Date().toISOString().slice(0, 10);
-    const dayOfWeek = (new Date().getDay() + 6) % 7; // 0 = Mon, 6 = Sun
-
-    state.weeklyStreakDays[dayOfWeek] = true;
-
-    if (state.lastActiveDate !== today) {
-      if (!state.lastActiveDate) {
-        state.streakDays = 1;
-      } else {
-        const last = new Date(state.lastActiveDate);
-        const diffMs = new Date(today).getTime() - last.getTime();
-        const diffDays = Math.round(diffMs / (1000 * 60 * 60 * 24));
-        if (diffDays === 1) {
-          state.streakDays += 1;
-        } else if (diffDays > 1) {
-          state.streakDays = 1;
-        }
-      }
-      state.lastActiveDate = today;
-    }
-  },
-
-  /**
    * Convert current learning state to StudentStats object for Dashboard.
    */
   getStudentStats(): StudentStats {
     const state = this.getState();
+    const streakInfo = this.getStreakInfo();
+
     const totalLessonsCompleted = Object.values(state.completedLessons).reduce(
       (sum, list) => sum + list.length,
       0
@@ -360,9 +634,9 @@ export const userProgressService = {
       overallMastery: calculatedMastery,
       totalConcepts: 84,
       masteredConcepts: state.masteredConcepts.length,
-      dailyStreak: state.streakDays,
-      longestStreak: Math.max(state.streakDays, 0),
-      weeklyStreakDays: state.weeklyStreakDays,
+      dailyStreak: streakInfo.current_streak,
+      longestStreak: streakInfo.longest_streak,
+      weeklyStreakDays: streakInfo.weekly_activity,
       focusTimeHours: focusHours,
       focusTimeDelta: focusHours > 0 ? `${focusHours}h logged` : "0h this week",
       conceptsCloseToMastery: state.learningConcepts.length,
@@ -382,7 +656,7 @@ export const userProgressService = {
           id: "sp-onboard-1",
           time: "Step 1",
           title: "Select your first course",
-          subtitle: "Explore 150+ curricula across K-12, B.Tech, and Competitive Exams",
+          subtitle: "Explore 213+ curricula across K-12, B.Tech, and Competitive Exams",
           tag: "Explore",
           tone: "indigo",
         },
@@ -390,7 +664,7 @@ export const userProgressService = {
           id: "sp-onboard-2",
           time: "Step 2",
           title: "Complete your first lesson",
-          subtitle: "Watch video or read study notes to unlock your streak",
+          subtitle: "Read notes or watch tutorial to start your daily streak",
           tag: "Lesson",
           tone: "emerald",
         },
@@ -398,8 +672,8 @@ export const userProgressService = {
           id: "sp-onboard-3",
           time: "Step 3",
           title: "Diagnostic Checkpoint",
-          subtitle: "Test baseline knowledge with AI Tutor",
-          tag: "AI Tutor",
+          subtitle: "Test baseline knowledge with Quiz Lab",
+          tag: "Quiz",
           tone: "cyan",
         },
       ];
@@ -426,7 +700,7 @@ export const userProgressService = {
         id: "sp-active-3",
         time: "Checkpoint",
         title: "Weekly Knowledge Quiz",
-        subtitle: "Measure concept retention and update mastery curve",
+        subtitle: "Measure concept retention and advance daily streak",
         tag: "Quiz",
         tone: "amber",
       },

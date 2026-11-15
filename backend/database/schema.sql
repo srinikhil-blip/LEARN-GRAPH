@@ -190,6 +190,23 @@ CREATE INDEX IF NOT EXISTS idx_student_profiles_user_id ON student_profiles(user
 CREATE INDEX IF NOT EXISTS idx_student_profiles_level ON student_profiles(level);
 CREATE INDEX IF NOT EXISTS idx_student_profiles_xp ON student_profiles(xp_points DESC);
 
+-- Table: learning_activities (Verified milestones advancing daily learning streak)
+CREATE TABLE IF NOT EXISTS learning_activities (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    activity_type VARCHAR(64) NOT NULL,
+    activity_date DATE NOT NULL,
+    user_timezone VARCHAR(64) NOT NULL DEFAULT 'Asia/Kolkata',
+    course_id VARCHAR(128),
+    lesson_id VARCHAR(128),
+    quiz_id VARCHAR(128),
+    score NUMERIC(5, 2),
+    details TEXT,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP
+);
+CREATE INDEX IF NOT EXISTS idx_learning_activities_user_date ON learning_activities(user_id, activity_date);
+CREATE INDEX IF NOT EXISTS idx_learning_activities_created ON learning_activities(user_id, created_at DESC);
+
 -- Table: teacher_profiles
 CREATE TABLE IF NOT EXISTS teacher_profiles (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),

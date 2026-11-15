@@ -57,6 +57,7 @@ from app.models.enums import (
     WeakConceptSource,
 )
 from app.models.extracted_data import ExtractedConcept, ExtractedText
+from app.models.learning_activity import ActivityType, LearningActivity
 from app.models.learning_history import LearningHistory
 from app.models.learning_path import LearningPath, LearningPathItem
 from app.models.lesson import Lesson
@@ -172,6 +173,8 @@ __all__ = [
     "QuizAttempt",
     "QuizAnswer",
     "QuizResult",
+    "LearningActivity",
+    "ActivityType",
     "LearningHistory",
     "StudyGoal",
     "LearningPath",
